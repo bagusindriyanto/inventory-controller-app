@@ -13,7 +13,7 @@ export function calculateSelectionRemaining(
     const season = String(sel.Season || sel.season || '').trim();
     const modelCode = String(sel['Model Code'] || sel.modelCode || '').trim();
     const sumSelection = parseFloat(
-      sel['Sum of Selection'] || sel.sumSelection || 0,
+      sel['SUM of Selection'] || sel.sumSelection || 0,
     );
 
     if (!modelCode) return;
@@ -25,19 +25,20 @@ export function calculateSelectionRemaining(
         String(ord['Model Code'] || ord.modelCode || '').trim() === modelCode,
     );
     const totalOrderQty = matchingOrders.reduce(
-      (acc, curr) => acc + parseFloat(curr['Qty Order'] || curr.qtyOrder || 0),
+      (acc, curr) => acc + parseFloat(curr['Qty ORDER'] || curr.qtyOrder || 0),
       0,
     );
 
     // Filter & sum total forecast data
-    const matchingForecast = forecastData.find(
+    const matchingForecasts = forecastData.filter(
       (fc) =>
         String(fc.Season || fc.season || '').trim() === season &&
         String(fc['Model Code'] || fc.modelCode || '').trim() === modelCode,
     );
-    const totalForecastQty = matchingForecast
-      ? parseFloat(matchingForecast.Totals || matchingForecast.totals || 0)
-      : 0;
+    const totalForecastQty = matchingForecasts.reduce(
+      (acc, curr) => acc + parseFloat(curr.Totals || curr.totals || 0),
+      0,
+    );
 
     const remaining = sumSelection - totalOrderQty - totalForecastQty;
 
@@ -57,7 +58,7 @@ export function calculateSelectionRemaining(
     });
   });
 
-  return results;
+  return results.sort((a, b) => a.modelCode - b.modelCode);
 }
 
 /**

@@ -1,5 +1,6 @@
 // src/components/SelectionTable.jsx
 import { AlertTriangle, CheckCircle } from 'lucide-react';
+import { formatNumber } from '../utils/numberFormatter';
 
 export default function SelectionTable({ data }) {
   if (!data || data.length === 0) return null;
@@ -36,18 +37,18 @@ export default function SelectionTable({ data }) {
                   {row.modelCode}
                 </td>
                 <td className="p-3 text-right font-semibold">
-                  {row.selectionQty.toLocaleString()}
+                  {formatNumber(row.selectionQty)}
                 </td>
                 <td className="p-3 text-right text-amber-600">
-                  {row.orderQty.toLocaleString()}
+                  {formatNumber(row.orderQty)}
                 </td>
                 <td className="p-3 text-right text-blue-600">
-                  {row.forecastQty.toLocaleString()}
+                  {formatNumber(row.forecastQty)}
                 </td>
                 <td
                   className={`p-3 text-right font-bold ${row.remainingSelection < 0 ? 'text-red-600' : 'text-emerald-600'}`}
                 >
-                  {row.remainingSelection.toLocaleString()}
+                  {formatNumber(row.remainingSelection)}
                 </td>
                 <td className="p-3 text-center">
                   {row.remainingSelection < 0 ? (

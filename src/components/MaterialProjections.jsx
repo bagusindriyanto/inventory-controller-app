@@ -1,5 +1,6 @@
 // src/components/MaterialProjections.jsx
 import { CalendarClock, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { formatNumber } from '../utils/numberFormatter';
 
 export default function MaterialProjections({ data }) {
   if (!data || !data.projections || data.projections.length === 0) return null;
@@ -55,7 +56,7 @@ export default function MaterialProjections({ data }) {
                     </div>
                   </td>
                   <td className="p-3 text-right font-semibold text-slate-700">
-                    {proj.initialStock.toLocaleString()}
+                    {formatNumber(proj.initialStock)}
                   </td>
                   <td className="p-3 text-center">
                     {isSafe ? (
@@ -77,7 +78,7 @@ export default function MaterialProjections({ data }) {
                     </div>
                     {!isSafe && (
                       <div className="text-[9px] font-normal text-slate-500">
-                        LT Target: {proj.totalLtWeeks}W
+                        Leadtime Target: {proj.totalLtWeeks}W
                       </div>
                     )}
                   </td>
@@ -87,11 +88,11 @@ export default function MaterialProjections({ data }) {
                       className={`p-2 text-center font-mono border-l border-slate-50 ${t.closingStock < 0 ? 'bg-red-50 text-red-600 font-bold' : 'text-slate-600'}`}
                     >
                       <div className="text-[10px]">
-                        {t.closingStock.toLocaleString()}
+                        {formatNumber(t.closingStock)}
                       </div>
                       {t.demand > 0 && (
                         <div className="text-[8px] text-slate-400">
-                          Req: {t.demand}
+                          Req: {formatNumber(t.demand)}
                         </div>
                       )}
                     </td>
