@@ -23,7 +23,7 @@ export default function MaterialProjections({ data }) {
           <thead>
             <tr className="bg-slate-100 text-slate-600 uppercase font-semibold border-b border-slate-200">
               <th className="p-3 sticky left-0 bg-slate-100 z-10 w-40">
-                Material ID & Detail
+                Material & Detail
               </th>
               <th className="p-3 text-right">Stok Awal</th>
               <th className="p-3 text-center">Est. Material Habis</th>
@@ -45,11 +45,12 @@ export default function MaterialProjections({ data }) {
               return (
                 <tr key={idx} className="hover:bg-slate-50 transition-colors">
                   <td className="p-3 sticky left-0 bg-white shadow-md z-10">
-                    <div className="font-bold text-slate-800">
-                      {proj.materialId}
+                    <div className="font-bold text-slate-800">{proj.name}</div>
+                    <div className="font-semibold text-[10px] text-slate-600 max-w-xs truncate">
+                      ({proj.color})
                     </div>
                     <div className="text-[10px] text-slate-400 truncate max-w-xs">
-                      {proj.name} ({proj.color})
+                      {proj.materialId}
                     </div>
                     <div className="text-[9px] text-indigo-600 font-semibold uppercase">
                       {proj.supplier}

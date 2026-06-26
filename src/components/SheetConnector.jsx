@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Link2, CheckCircle2, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { RefreshCw } from 'lucide-react';
 
 export default function SheetConnector({ onDataLoaded }) {
   // Cukup 1 URL utama (ID Spreadsheet yang sama untuk File 1, 2, dan 3)
@@ -10,12 +11,12 @@ export default function SheetConnector({ onDataLoaded }) {
   );
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(false);
 
   const handleFetchAllSheets = async () => {
     setLoading(true);
-    setStatus('Mengunduh seluruh workbook Excel (1x Fetch)...');
-    setError('');
+    setStatus('');
+    setError(false);
 
     try {
       // URL untuk mengekspor seluruh dokumen sebagai XLSX
@@ -68,26 +69,25 @@ export default function SheetConnector({ onDataLoaded }) {
 
       // Kirim balik ke App.jsx
       onDataLoaded({ selectionRaw, orderRaw, forecastRaw });
-      setStatus(
-        'Sukses! File 1, 2, dan 3 berhasil dimuat secara simultan dalam 1x fetch.',
-      );
+      setStatus('Data berhasil diambil');
     } catch (err) {
       console.error(err);
-      setError(err.message || 'Terjadi kesalahan saat memproses spreadsheet.');
+      setStatus(err.message || 'Terjadi kesalahan saat mengunduh spreadsheet.');
+      setError(true);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-xs border border-slate-100 mb-6">
-      <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+    <div className="p-6 bg-white rounded-xl border shadow-xs border-slate-100">
+      <h3 className="flex gap-2 items-center mb-4 text-lg font-bold text-slate-800">
         <Link2 className="text-[#007cbd]" size={20} /> Koneksi Terintegrasi
         (Google Sheets)
       </h3>
 
       <div className="mb-4">
-        <label className="text-xs font-semibold text-slate-500 block mb-1">
+        <label className="block mb-1 text-xs font-semibold text-slate-500">
           Google Spreadsheet ID
         </label>
         <input
@@ -106,20 +106,18 @@ export default function SheetConnector({ onDataLoaded }) {
       <button
         onClick={handleFetchAllSheets}
         disabled={loading}
-        className="w-full bg-[#007cbd] hover:bg-blue-700 text-white font-semibold py-2.5 px-4 text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+        className="w-full bg-[#007cbd] hover:bg-blue-700 text-white font-semibold py-2.5 px-4 text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 justify-center"
       >
-        {loading ? 'Mengunduh Workbook...' : 'Fetch Semua Sheet Sekaligus'}
+        <RefreshCw className={loading && 'animate-spin'} size={14} />
+        <span>{loading ? 'Mengunduh Data...' : 'Refresh Data'}</span>
       </button>
 
-      {status && (
-        <div className="mt-3 p-2 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-md flex items-center gap-2">
-          <CheckCircle2 size={14} /> {status}
-        </div>
-      )}
-
-      {error && (
-        <div className="mt-3 p-2 bg-red-50 text-red-700 text-xs font-medium rounded-md flex items-center gap-2">
-          <AlertCircle size={14} /> {error}
+      {!!status && (
+        <div
+          className={`mt-3 p-2 ${error ? 'text-red-700 bg-red-50' : 'text-emerald-700 bg-emerald-50'}  text-xs font-medium rounded-md flex items-center gap-2`}
+        >
+          {error ? <AlertCircle size={14} /> : <CheckCircle2 size={14} />}{' '}
+          {status}
         </div>
       )}
     </div>
