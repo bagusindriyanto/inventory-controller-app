@@ -3,6 +3,18 @@ import { useState } from 'react';
 import { Link2, CheckCircle2, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { RefreshCw } from 'lucide-react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '../ui/card';
+import { Input } from '../ui/input';
+import { Field, FieldLabel } from '../ui/field';
+import { Button } from '../ui/button';
+import { cn } from '@/lib/utils';
 
 export default function SheetConnector({ onDataLoaded }) {
   // Cukup 1 URL utama (ID Spreadsheet yang sama untuk File 1, 2, dan 3)
@@ -80,46 +92,54 @@ export default function SheetConnector({ onDataLoaded }) {
   };
 
   return (
-    <div className="p-6 bg-white rounded-xl border shadow-xs border-slate-100">
-      <h3 className="flex gap-2 items-center mb-4 text-lg font-bold text-slate-800">
-        <Link2 className="text-[#007cbd]" size={20} /> Koneksi Terintegrasi
-        (Google Sheets)
-      </h3>
-
-      <div className="mb-4">
-        <label className="block mb-1 text-xs font-semibold text-slate-500">
-          Google Spreadsheet ID
-        </label>
-        <input
-          type="text"
-          value={spreadsheetId}
-          onChange={(e) => setSpreadsheetId(e.target.value)}
-          className="w-full text-xs p-2.5 border border-slate-200 rounded-lg bg-slate-50 focus:outline-hidden focus:border-[#007cbd]"
-          placeholder="Masukkan ID Spreadsheet"
-        />
-        <p className="text-[10px] text-slate-400 mt-1">
-          Sistem akan otomatis mengambil sheet: <i>New Selection Data</i>,{' '}
-          <i>RAW DATA</i>, & <i>Forecast Decathlon</i> sekaligus.
-        </p>
-      </div>
-
-      <button
-        onClick={handleFetchAllSheets}
-        disabled={loading}
-        className="w-full bg-[#007cbd] hover:bg-blue-700 text-white font-semibold py-2.5 px-4 text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 justify-center"
-      >
-        <RefreshCw className={loading && 'animate-spin'} size={14} />
-        <span>{loading ? 'Mengunduh Data...' : 'Refresh Data'}</span>
-      </button>
-
-      {!!status && (
-        <div
-          className={`mt-3 p-2 ${error ? 'text-red-700 bg-red-50' : 'text-emerald-700 bg-emerald-50'}  text-xs font-medium rounded-md flex items-center gap-2`}
+    <Card className="shadow-xs">
+      <CardHeader>
+        <CardTitle className="flex gap-2 items-center text-sm font-bold">
+          <Link2 className="text-primary" size={18} />
+          Koneksi Google Sheets
+        </CardTitle>
+        <CardDescription className="text-xs">
+          Sistem akan otomatis mengambil sheet: New Selection Data, RAW DATA, &
+          Forecast Decathlon sekaligus.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Field>
+          <FieldLabel className="text-xs" htmlFor="spreadsheet-id">
+            Google Spreadsheet ID
+          </FieldLabel>
+          <Input
+            id="spreadsheet-id"
+            type="text"
+            className="md:text-xs"
+            value={spreadsheetId}
+            onChange={(e) => setSpreadsheetId(e.target.value)}
+            placeholder="Masukkan ID Spreadsheet"
+          />
+        </Field>
+        {!!status && (
+          <div
+            className={`mt-3 p-2 ${error ? 'text-red-700 bg-red-50' : 'text-emerald-700 bg-emerald-50'}  text-xs font-medium rounded-md flex items-center gap-2`}
+          >
+            {error ? <AlertCircle size={14} /> : <CheckCircle2 size={14} />}{' '}
+            {status}
+          </div>
+        )}
+      </CardContent>
+      <CardFooter>
+        <Button
+          size="lg"
+          onClick={handleFetchAllSheets}
+          disabled={loading}
+          className="w-full"
         >
-          {error ? <AlertCircle size={14} /> : <CheckCircle2 size={14} />}{' '}
-          {status}
-        </div>
-      )}
-    </div>
+          <RefreshCw
+            data-icon="inline-start"
+            className={cn(loading && 'animate-spin')}
+          />
+          {loading ? 'Mengunduh Data...' : 'Refresh Data'}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }

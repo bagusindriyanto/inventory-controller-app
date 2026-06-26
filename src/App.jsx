@@ -1,13 +1,18 @@
 import { useState, useMemo } from 'react';
-import SheetConnector from './components/SheetConnector';
-import FileUploader from './components/FileUploader';
+import SheetConnector from './components/sheet/SheetConnector';
+import FileUploader from './components/excel/FileUploader';
 import SelectionTable from './components/SelectionTable';
 import MaterialProjections from './components/MaterialProjections';
 import {
   calculateSelectionRemaining,
   calculateMaterialAvailability,
 } from './utils/dataProcessor';
-import { Layers, PackageCheck, BarChart3 } from 'lucide-react';
+import { Layers } from 'lucide-react';
+import SheetStatus from './components/sheet/SheetStatus';
+import FileStatus from './components/excel/FileStatus';
+import EmptyProjections from './components/material/EmptyProjections';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
+import EmptySelection from './components/selection/EmptySelection';
 
 export default function App() {
   // Master State untuk Data Sumber
@@ -35,13 +40,13 @@ export default function App() {
   }, [sheetData, materialDb, stockData]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50">
+    <div className="flex flex-col min-h-screen">
       {/* Header Panel */}
       <header className="p-4 text-white border-b shadow-md bg-slate-900 border-slate-800">
         <div className="flex justify-between items-center mx-auto max-w-7xl">
           <div className="flex gap-3 items-center">
-            <div className="p-2 bg-[#007cbd] rounded-lg">
-              <Layers size={22} className="text-white" />
+            <div className="p-2 rounded-lg bg-primary">
+              <Layers size={22} className="text-primary-foreground" />
             </div>
             <div>
               <h1 className="text-lg font-bold tracking-tight">
@@ -76,67 +81,34 @@ export default function App() {
 
         {/* Dashboard Status Indikator Kesiapan Data */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="flex gap-3 items-center p-4 bg-white rounded-xl border border-slate-100">
-            <div
-              className={`p-2 rounded-lg ${sheetData ? 'text-blue-600 bg-blue-50' : 'bg-slate-100 text-slate-400'}`}
-            >
-              <PackageCheck size={20} />
-            </div>
-            <div>
-              <div className="text-xs font-semibold text-slate-400">
-                File 1, 2, 3 (Spreadsheet)
-              </div>
-              <div className="text-sm font-bold text-slate-700">
-                {sheetData ? 'Koneksi Terhubung' : 'Menunggu Sinkronisasi'}
-              </div>
-            </div>
-          </div>
-          <div className="flex gap-3 items-center p-4 bg-white rounded-xl border border-slate-100">
-            <div
-              className={`p-2 rounded-lg ${materialDb ? 'text-emerald-600 bg-emerald-50' : 'bg-slate-100 text-slate-400'}`}
-            >
-              <Layers size={20} />
-            </div>
-            <div>
-              <div className="text-xs font-semibold text-slate-400">
-                File 4 (Database Material)
-              </div>
-              <div className="text-sm font-bold text-slate-700">
-                {materialDb
-                  ? `${materialDb.length} Items Terunggah`
-                  : 'Belum Ada File'}
-              </div>
-            </div>
-          </div>
-          <div className="flex gap-3 items-center p-4 bg-white rounded-xl border border-slate-100">
-            <div
-              className={`p-2 rounded-lg ${stockData ? 'text-purple-600 bg-purple-50' : 'bg-slate-100 text-slate-400'}`}
-            >
-              <BarChart3 size={20} />
-            </div>
-            <div>
-              <div className="text-xs font-semibold text-slate-400">
-                File 5 (Stock Material)
-              </div>
-              <div className="text-sm font-bold text-slate-700">
-                {stockData
-                  ? `${stockData.length} Items Terunggah`
-                  : 'Belum Ada File'}
-              </div>
-            </div>
-          </div>
+          <SheetStatus sheetData={sheetData} />
+          <FileStatus
+            title={'File 4 (Database Material)'}
+            excelData={materialDb}
+          />
+          <FileStatus title={'File 5 (Stock Material)'} excelData={stockData} />
         </div>
 
-        {/* Output Analisis Terhitung */}
-        {sheetData && <SelectionTable data={selectionAnalysis} />}
-        {componentAnalysis ? (
-          <MaterialProjections data={componentAnalysis} />
-        ) : (
-          <div className="p-12 text-sm font-medium text-center bg-white rounded-xl border border-slate-100 text-slate-400 shadow-xs">
-            Silakan lakukan sinkronisasi Spreadsheet dan unggah berkas File 4 &
-            5 untuk memunculkan proyeksi kebutuhan material.
-          </div>
-        )}
+        <Tabs defaultValue="selection">
+          <TabsList>
+            <TabsTrigger value="selection">Sisa Selection</TabsTrigger>
+            <TabsTrigger value="material">Proyeksi Material</TabsTrigger>
+          </TabsList>
+          <TabsContent value="selection">
+            {sheetData ? (
+              <SelectionTable data={selectionAnalysis} />
+            ) : (
+              <EmptySelection />
+            )}
+          </TabsContent>
+          <TabsContent value="material">
+            {componentAnalysis ? (
+              <MaterialProjections data={componentAnalysis} />
+            ) : (
+              <EmptyProjections />
+            )}
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
