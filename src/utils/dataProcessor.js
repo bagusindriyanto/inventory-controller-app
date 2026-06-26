@@ -58,7 +58,11 @@ export function calculateSelectionRemaining(
     });
   });
 
-  return results.sort((a, b) => a.modelCode - b.modelCode);
+  return results.sort(
+    (a, b) =>
+      a.season.localeCompare(b.season) ||
+      a.remainingSelection - b.remainingSelection,
+  );
 }
 
 /**
@@ -183,6 +187,29 @@ export function calculateMaterialAvailability(
       orderTriggerWeek: shortageWeek ? orderTriggerWeek : 'No Action Needed',
       timeline: weeklyTimeline,
     });
+  });
+
+  finalProjections.sort((a, b) => {
+    const getPriority = (value) => {
+      if (value === 'IMMEDIATE / OVERDUE') return 0;
+      if (value === 'No Action Needed') return 2;
+      return 1; // untuk nilai lain jika ada
+    };
+
+    const priorityA = getPriority(a.orderTriggerWeek);
+    const priorityB = getPriority(b.orderTriggerWeek);
+
+    // Prioritas berbeda
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+
+    // Sama-sama week number
+    if (priorityA === 1) {
+      return a.orderTriggerWeek.localeCompare(b.orderTriggerWeek);
+    }
+
+    return 0;
   });
 
   return { weekKeys, projections: finalProjections };
