@@ -5,8 +5,6 @@ import { formatNumber } from '@/utils/numberFormatter';
 export default function SelectionTable({ data }) {
   if (!data || data.length === 0) return null;
 
-  console.log(Object.keys(data[0]));
-
   return (
     <div className="overflow-hidden mb-6 bg-white rounded-xl border shadow-xs border-slate-100">
       <div className="p-5 border-b border-slate-100 bg-slate-50">
