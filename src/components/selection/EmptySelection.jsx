@@ -14,10 +14,10 @@ export default function EmptySelection() {
         <EmptyMedia variant="icon">
           <SearchX />
         </EmptyMedia>
-        <EmptyTitle>Proyeksi Sisa Selection Tidak Tersedia</EmptyTitle>
+        <EmptyTitle>Sisa Selection Tidak Tersedia</EmptyTitle>
         <EmptyDescription>
-          Silakan lakukan sinkronisasi Spreadsheet untuk memunculkan proyeksi
-          sisa selection.
+          Silakan lakukan sinkronisasi Spreadsheet untuk memunculkan data sisa
+          selection.
         </EmptyDescription>
       </EmptyHeader>
     </Empty>

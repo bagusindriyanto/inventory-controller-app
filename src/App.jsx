@@ -13,31 +13,38 @@ import FileStatus from './components/excel/FileStatus';
 import EmptyProjections from './components/material/EmptyProjections';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import EmptySelection from './components/selection/EmptySelection';
+import { useGoogleSheets } from './hooks/useGoogleSheets';
+import { ENVIRONTMENT } from './config/environtment';
 
 export default function App() {
+  const { sheets, loading, error, refetch } = useGoogleSheets(
+    ENVIRONTMENT.SPREADSHEET_ID,
+    ENVIRONTMENT.SHEET_CONFIGS,
+  );
+
   // Master State untuk Data Sumber
-  const [sheetData, setSheetData] = useState(null); // berisi: selectionRaw, orderRaw, forecastRaw
   const [materialDb, setMaterialDb] = useState(null); // File 4
   const [stockData, setStockData] = useState(null); // File 5
 
   // Trigger kalkulasi menggunakan useMemo untuk optimasi performa render
   const selectionAnalysis = useMemo(() => {
-    if (!sheetData) return [];
+    if (Object.keys(sheets).length === 0) return [];
     return calculateSelectionRemaining(
-      sheetData.selectionRaw,
-      sheetData.orderRaw,
-      sheetData.forecastRaw,
+      sheets['New Selection Data'].data,
+      sheets['RAW DATA'].data,
+      sheets['Forecast Decathlon'].data,
     );
-  }, [sheetData]);
+  }, [sheets]);
 
   const componentAnalysis = useMemo(() => {
-    if (!sheetData || !materialDb || !stockData) return null;
+    if (Object.keys(sheets).length === 0 || !materialDb || !stockData)
+      return null;
     return calculateMaterialAvailability(
-      sheetData.forecastRaw,
+      sheets['Forecast Decathlon'].data,
       materialDb,
       stockData,
     );
-  }, [sheetData, materialDb, stockData]);
+  }, [sheets, materialDb, stockData]);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -64,9 +71,7 @@ export default function App() {
       <main className="flex-1 p-4 mx-auto space-y-6 w-full max-w-7xl md:p-6">
         {/* Kontrol Integrasi Data */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-1">
-            <SheetConnector onDataLoaded={(data) => setSheetData(data)} />
-          </div>
+          <SheetConnector loading={loading} error={error} refetch={refetch} />
           <div className="grid grid-cols-1 gap-6 lg:col-span-2 md:grid-cols-2">
             <FileUploader
               title="Database Material (BOM Update)"
@@ -81,7 +86,7 @@ export default function App() {
 
         {/* Dashboard Status Indikator Kesiapan Data */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <SheetStatus sheetData={sheetData} />
+          <SheetStatus sheetData={sheets} />
           <FileStatus
             title={'File 4 (Database Material)'}
             excelData={materialDb}
@@ -95,7 +100,7 @@ export default function App() {
             <TabsTrigger value="material">Proyeksi Material</TabsTrigger>
           </TabsList>
           <TabsContent value="selection">
-            {sheetData ? (
+            {selectionAnalysis && selectionAnalysis.length > 0 ? (
               <SelectionTable data={selectionAnalysis} />
             ) : (
               <EmptySelection />

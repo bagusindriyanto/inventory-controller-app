@@ -60,11 +60,7 @@ export function calculateSelectionRemaining(
     });
   });
 
-  return results.sort(
-    (a, b) =>
-      a.season.localeCompare(b.season) ||
-      a.remainingSelection - b.remainingSelection,
-  );
+  return results;
 }
 
 /**
