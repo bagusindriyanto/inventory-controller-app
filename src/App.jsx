@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
 import SheetConnector from './components/sheet/SheetConnector';
 import FileUploader from './components/excel/FileUploader';
-import SelectionTable from './components/SelectionTable';
-import MaterialProjections from './components/MaterialProjections';
+import SelectionTable from './components/selection/SelectionTable';
+import MaterialProjections from './components/material/MaterialProjections';
 import {
   calculateSelectionRemaining,
   calculateMaterialAvailability,

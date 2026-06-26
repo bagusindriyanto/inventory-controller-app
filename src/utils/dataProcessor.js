@@ -12,6 +12,7 @@ export function calculateSelectionRemaining(
   selectionData.forEach((sel) => {
     const season = String(sel.Season || sel.season || '').trim();
     const modelCode = String(sel['Model Code'] || sel.modelCode || '').trim();
+    const style = String(sel.Style || sel.style || '').trim();
     const sumSelection = parseFloat(
       sel['SUM of Selection'] || sel.sumSelection || 0,
     );
@@ -45,6 +46,7 @@ export function calculateSelectionRemaining(
     results.push({
       season,
       modelCode,
+      style,
       selectionQty: sumSelection,
       orderQty: totalOrderQty,
       forecastQty: totalForecastQty,
