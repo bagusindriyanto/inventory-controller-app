@@ -55,7 +55,7 @@ export default function FileUploader({ title, onUploadComplete }) {
           />
           <UploadCloud className="mx-auto mb-2 text-slate-400" size={28} />
           <span className="block text-xs font-semibold text-slate-600">
-            {fileName ? fileName : 'Pilih / Seret File Excel'}
+            {fileName ? fileName : 'Pilih File Excel'}
           </span>
         </label>
       </CardContent>
