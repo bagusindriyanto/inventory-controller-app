@@ -86,7 +86,7 @@ export default function App() {
 
         {/* Dashboard Status Indikator Kesiapan Data */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <SheetStatus sheetData={sheets} error={error} />
+          <SheetStatus sheetData={sheets} loading={loading} error={error} />
           <FileStatus
             title={'File 4 (Database Material)'}
             excelData={materialDb}
