@@ -71,7 +71,7 @@ export default function App() {
       <main className="flex-1 p-4 mx-auto space-y-6 w-full max-w-7xl md:p-6">
         {/* Kontrol Integrasi Data */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <SheetConnector loading={loading} error={error} refetch={refetch} />
+          <SheetConnector loading={loading} refetch={refetch} />
           <div className="grid grid-cols-1 gap-6 lg:col-span-2 md:grid-cols-2">
             <FileUploader
               title="Database Material (BOM Update)"
@@ -86,7 +86,7 @@ export default function App() {
 
         {/* Dashboard Status Indikator Kesiapan Data */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <SheetStatus sheetData={sheets} />
+          <SheetStatus sheetData={sheets} error={error} />
           <FileStatus
             title={'File 4 (Database Material)'}
             excelData={materialDb}

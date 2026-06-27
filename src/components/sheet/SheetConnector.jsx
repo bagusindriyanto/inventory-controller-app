@@ -11,9 +11,8 @@ import {
 } from '../ui/card';
 import { Button } from '../ui/button';
 import { cn } from '@/lib/utils';
-import { AlertCircle } from 'lucide-react';
 
-export default function SheetConnector({ loading, error, refetch }) {
+export default function SheetConnector({ loading, refetch }) {
   return (
     <Card className="shadow-xs lg:col-span-1">
       <CardHeader>
@@ -26,14 +25,7 @@ export default function SheetConnector({ loading, error, refetch }) {
           Forecast Decathlon sekaligus.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex-1">
-        {error && (
-          <div className="mt-3 p-2 text-red-700 bg-red-50 text-xs font-medium rounded-md flex items-center gap-2">
-            <AlertCircle size={14} />
-            {error.message || 'Error saat koneksi ke Google Sheets'}
-          </div>
-        )}
-      </CardContent>
+      <CardContent className="flex-1"></CardContent>
       <CardFooter>
         <Button
           size="lg"

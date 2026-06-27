@@ -100,7 +100,7 @@ export default function SelectionTable({ data }) {
             <input
               id="selection-search"
               type="text"
-              placeholder="Cari season, model, style..."
+              placeholder="Cari season, model code, style..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="py-2 pr-3 pl-9 w-full text-xs rounded-lg border transition-colors border-slate-200 bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"

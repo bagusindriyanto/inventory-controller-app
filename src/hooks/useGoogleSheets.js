@@ -15,6 +15,11 @@ export function useGoogleSheets(spreadsheetId, sheetConfigs) {
     try {
       const result = await fetchAllSheets(spreadsheetId, sheetConfigs);
       setSheets(result);
+
+      const errorSheet = Object.values(result).find((sheet) => sheet.error);
+      if (errorSheet) {
+        setError(errorSheet.error);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
