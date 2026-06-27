@@ -109,6 +109,7 @@ export function calculateMaterialAvailability(
       materialMetadata[materialId] = {
         name: mat.NAMA || mat.name || 'Unknown Material',
         color: mat.COLOR || mat.color || '-',
+        unit: mat.UOM || mat.uom || 'N/A',
         supplier: mat.Supplier || mat.supplier || 'NON NOMINATE',
         leadTimeDays: leadTimeDays,
         // Allowance 3 bulan (90 hari) dikonversi ke minggu bersama dengan Lead Time produksi & transportasi
@@ -177,6 +178,7 @@ export function calculateMaterialAvailability(
       materialId: matId,
       name: meta.name,
       color: meta.color,
+      unit: meta.unit,
       supplier: meta.supplier,
       initialStock,
       currentBalance: runningStock,

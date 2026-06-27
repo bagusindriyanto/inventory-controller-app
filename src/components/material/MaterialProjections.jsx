@@ -106,6 +106,7 @@ export default function MaterialProjections({ data }) {
                 <SortIcon direction={sortDirection} />
               </th>
               <th className="p-3 text-right">Stok Awal</th>
+              <th className="p-3 text-center">UOM</th>
               <th className="p-3 text-center">Est. Material Habis</th>
               <th className="p-3 font-bold text-center text-amber-900 bg-amber-50">
                 Batas Tanggal Beli (MRP)
@@ -151,6 +152,9 @@ export default function MaterialProjections({ data }) {
                     </td>
                     <td className="p-3 font-semibold text-right text-slate-700">
                       {formatNumber(proj.initialStock)}
+                    </td>
+                    <td className="p-3 text-center text-slate-700">
+                      {proj.unit}
                     </td>
                     <td className="p-3 text-center">
                       {isSafe ? (
