@@ -53,7 +53,7 @@ export const fetchAllSheets = async (spreadsheetId, sheetConfigs) => {
 
   return Object.fromEntries(
     sheetConfigs.map(({ name }, i) => [
-      name,
+      `${name}_${i}`,
       results[i].status === 'fulfilled'
         ? { data: results[i].value, error: null }
         : { data: [], error: results[i].reason.message },

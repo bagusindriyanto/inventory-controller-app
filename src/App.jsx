@@ -15,6 +15,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import EmptySelection from './components/selection/EmptySelection';
 import { useGoogleSheets } from './hooks/useGoogleSheets';
 import { ENVIRONTMENT } from './config/environtment';
+import EmptyStyles from './components/style/EmptyStyles';
+import { calculateOptimumAllocation } from './utils/solver';
+import StyleProjections from './components/style/StyleProjections';
 
 export default function App() {
   const { sheets, loading, error, refetch } = useGoogleSheets(
@@ -30,9 +33,9 @@ export default function App() {
   const selectionAnalysis = useMemo(() => {
     if (Object.keys(sheets).length === 0) return [];
     return calculateSelectionRemaining(
-      sheets['New Selection Data'].data,
-      sheets['RAW DATA'].data,
-      sheets['Forecast Decathlon'].data,
+      sheets['New Selection Data_0'].data,
+      sheets['RAW DATA_1'].data,
+      sheets['Forecast Decathlon_2'].data,
     );
   }, [sheets]);
 
@@ -40,7 +43,17 @@ export default function App() {
     if (Object.keys(sheets).length === 0 || !materialDb || !stockData)
       return null;
     return calculateMaterialAvailability(
-      sheets['Forecast Decathlon'].data,
+      sheets['Forecast Decathlon_3'].data,
+      materialDb,
+      stockData,
+    );
+  }, [sheets, materialDb, stockData]);
+
+  const optimumReport = useMemo(() => {
+    if (Object.keys(sheets).length === 0 || !materialDb || !stockData)
+      return null;
+    return calculateOptimumAllocation(
+      sheets['Forecast Decathlon_3'].data,
       materialDb,
       stockData,
     );
@@ -98,6 +111,7 @@ export default function App() {
           <TabsList>
             <TabsTrigger value="selection">Sisa Selection</TabsTrigger>
             <TabsTrigger value="material">Proyeksi Material</TabsTrigger>
+            <TabsTrigger value="style">Proyeksi Style</TabsTrigger>
           </TabsList>
           <TabsContent value="selection">
             {selectionAnalysis && selectionAnalysis.length > 0 ? (
@@ -111,6 +125,16 @@ export default function App() {
               <MaterialProjections data={componentAnalysis} />
             ) : (
               <EmptyProjections />
+            )}
+          </TabsContent>
+          <TabsContent value="style">
+            {optimumReport ? (
+              <StyleProjections
+                optimumReport={optimumReport}
+                forecastData={sheets['Forecast Decathlon_3'].data}
+              />
+            ) : (
+              <EmptyStyles />
             )}
           </TabsContent>
         </Tabs>
