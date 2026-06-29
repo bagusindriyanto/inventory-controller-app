@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { formatNumber } from '@/utils/numberFormatter';
 import { transformOptimumReport } from '@/utils/solver';
 import { useMemo } from 'react';
 
@@ -16,11 +17,11 @@ export default function StyleProjections({ optimumReport, forecastData }) {
   // C. Helper fungsi untuk memberikan warna visual otomatis pada status produksi
   const getStatusClass = (status) => {
     switch (status) {
-      case '🟢 SAFE':
+      case 'SAFE':
         return 'bg-green-100';
-      case '🟡 PARTIAL (SHORTAGE)':
+      case 'PARTIAL (SHORTAGE)':
         return 'bg-yellow-100';
-      case '🔴 UNFEASIBLE (STOP)':
+      case 'UNFEASIBLE (STOP)':
         return 'bg-red-100';
       default:
         return 'bg-white';
@@ -112,10 +113,10 @@ export default function StyleProjections({ optimumReport, forecastData }) {
                       ) : (
                         <div className="flex flex-col gap-1 items-center justify-center">
                           <div className="font-semibold text-[10px] text-slate-600">
-                            {cell.actual.toLocaleString()}
+                            {formatNumber(cell.actual)}
                           </div>
                           <div className="text-slate-400 text-[8px]">
-                            Forecast: {cell.forecast.toLocaleString()}
+                            Forecast: {formatNumber(cell.forecast)}
                           </div>
                         </div>
                       )}

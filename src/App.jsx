@@ -16,8 +16,8 @@ import EmptySelection from './components/selection/EmptySelection';
 import { useGoogleSheets } from './hooks/useGoogleSheets';
 import { ENVIRONTMENT } from './config/environtment';
 import EmptyStyles from './components/style/EmptyStyles';
-import { calculateOptimumAllocation } from './utils/solver';
 import StyleProjections from './components/style/StyleProjections';
+import { useSolver } from './hooks/useSolver';
 
 export default function App() {
   const { sheets, loading, error, refetch } = useGoogleSheets(
@@ -49,15 +49,11 @@ export default function App() {
     );
   }, [sheets, materialDb, stockData]);
 
-  const optimumReport = useMemo(() => {
-    if (Object.keys(sheets).length === 0 || !materialDb || !stockData)
-      return null;
-    return calculateOptimumAllocation(
-      sheets['Forecast Decathlon_3'].data,
-      materialDb,
-      stockData,
-    );
-  }, [sheets, materialDb, stockData]);
+  const {
+    result: optimumReport,
+    loading: solverLoading,
+    error: solverError,
+  } = useSolver(sheets['Forecast Decathlon_3']?.data, materialDb, stockData);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -128,7 +124,19 @@ export default function App() {
             )}
           </TabsContent>
           <TabsContent value="style">
-            {optimumReport ? (
+            {solverLoading ? (
+              <div className="flex flex-col items-center justify-center p-12 bg-white rounded-xl border border-slate-100">
+                {/* A premium looking loader spinner */}
+                <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                <p className="mt-4 text-sm text-slate-500 font-medium">
+                  Running Linear Solver Simulation...
+                </p>
+              </div>
+            ) : solverError ? (
+              <div className="p-5 text-sm text-red-600 bg-red-50 rounded-xl border border-red-100">
+                Error running solver: {solverError}
+              </div>
+            ) : optimumReport ? (
               <StyleProjections
                 optimumReport={optimumReport}
                 forecastData={sheets['Forecast Decathlon_3'].data}

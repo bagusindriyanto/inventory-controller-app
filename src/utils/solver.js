@@ -30,7 +30,7 @@ export function calculateOptimumAllocation(
   // C. DINAMIS: Ambil daftar minggu langsung dari properti key objek baris pertama
   // Mengabaikan key non-minggu seperti 'style'
   const sampleForecast = forecastData[0] || {};
-  const uniqueWeeks = Object.keys(sampleForecast).filter(
+  const weekKeys = Object.keys(sampleForecast).filter(
     (key) =>
       /^(W|w|Week|week)?\s*\d+$/.test(key) &&
       key.toLowerCase() !== 'id' &&
@@ -40,7 +40,7 @@ export function calculateOptimumAllocation(
   const simulationReport = {};
 
   // --- RUN SIMULATION LOOP MINGGUAN ---
-  uniqueWeeks.forEach((currentWeek) => {
+  weekKeys.forEach((currentWeek) => {
     // Inisialisasi Model Simplex untuk minggu berjalan
     const lpModel = {
       optimize: 'totalOutputVolume',
@@ -82,13 +82,11 @@ export function calculateOptimumAllocation(
     });
 
     // 3. JALANKAN METODE SIMPLEX SOLVER
+    console.log(`Week ${currentWeek} Model`, lpModel);
     const solution = solver.Solve(lpModel);
-
+    console.log(`Week ${currentWeek} Solution`, solution);
     // 4. REKAM HASIL & EKSEKUSI PENGURANGAN STOK GUDANG
-    simulationReport[currentWeek] = {
-      allocatedProduction: {},
-      stockAtStart: { ...currentStockTracker },
-    };
+    simulationReport[currentWeek] = {};
 
     forecastData.forEach((fc) => {
       const forecastQty = fc[currentWeek] || 0;
@@ -98,11 +96,11 @@ export function calculateOptimumAllocation(
 
       const actualAllocated = solution[modelCode] || 0;
 
-      let status = '🟢 SAFE';
-      if (actualAllocated === 0) status = '🔴 UNFEASIBLE (STOP)';
-      else if (actualAllocated < forecastQty) status = '🟡 PARTIAL (SHORTAGE)';
+      let status = 'SAFE';
+      if (actualAllocated === 0) status = 'UNFEASIBLE (STOP)';
+      else if (actualAllocated < forecastQty) status = 'PARTIAL (SHORTAGE)';
 
-      simulationReport[currentWeek].allocatedProduction[modelCode] = {
+      simulationReport[currentWeek][modelCode] = {
         forecast: forecastQty,
         actual: actualAllocated,
         shortage: forecastQty - actualAllocated,
@@ -136,7 +134,7 @@ export function transformOptimumReport(report, forecastData) {
 
     // 3. Masukkan data mingguan seperti biasa
     Object.keys(report).forEach((week) => {
-      const weekData = report[week].allocatedProduction[row.codeStyle]; // Cari berdasarkan codeStyle
+      const weekData = report[week][row.codeStyle]; // Cari berdasarkan codeStyle
 
       if (weekData) {
         row[week] = {
