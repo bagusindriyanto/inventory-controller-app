@@ -82,9 +82,7 @@ export function calculateOptimumAllocation(
     });
 
     // 3. JALANKAN METODE SIMPLEX SOLVER
-    console.log(`Week ${currentWeek} Model`, lpModel);
     const solution = solver.Solve(lpModel);
-    console.log(`Week ${currentWeek} Solution`, solution);
     // 4. REKAM HASIL & EKSEKUSI PENGURANGAN STOK GUDANG
     simulationReport[currentWeek] = {};
 
