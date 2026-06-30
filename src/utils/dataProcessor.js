@@ -9,6 +9,32 @@ export function calculateSelectionRemaining(
 ) {
   const results = [];
 
+  // Pre-aggregate Orders
+  const orderLookup = {};
+  orderData.forEach((ord) => {
+    const season = String(ord.Season || ord.season || '').trim();
+    const modelCode = String(ord['Model Code'] || ord.modelCode || '').trim();
+
+    if (!modelCode) return;
+
+    const key = `${season}_${modelCode}`;
+    const qty = parseFloat(ord['Qty ORDER'] || ord.qtyOrder || 0);
+    orderLookup[key] = (orderLookup[key] || 0) + qty;
+  });
+
+  // Pre-aggregate Forecasts
+  const forecastLookup = {};
+  forecastData.forEach((fc) => {
+    const season = String(fc.Season || fc.season || '').trim();
+    const modelCode = String(fc['Model Code'] || fc.modelCode || '').trim();
+
+    if (!modelCode) return;
+
+    const key = `${season}_${modelCode}`;
+    const qty = parseFloat(fc.Totals || fc.totals || 0);
+    forecastLookup[key] = (forecastLookup[key] || 0) + qty;
+  });
+
   selectionData.forEach((sel) => {
     const season = String(sel.Season || sel.season || '').trim();
     const modelCode = String(sel['Model Code'] || sel.modelCode || '').trim();
@@ -19,27 +45,9 @@ export function calculateSelectionRemaining(
 
     if (!modelCode) return;
 
-    // Filter & sum order quantity
-    const matchingOrders = orderData.filter(
-      (ord) =>
-        String(ord.Season || ord.season || '').trim() === season &&
-        String(ord['Model Code'] || ord.modelCode || '').trim() === modelCode,
-    );
-    const totalOrderQty = matchingOrders.reduce(
-      (acc, curr) => acc + parseFloat(curr['Qty ORDER'] || curr.qtyOrder || 0),
-      0,
-    );
-
-    // Filter & sum total forecast data
-    const matchingForecasts = forecastData.filter(
-      (fc) =>
-        String(fc.Season || fc.season || '').trim() === season &&
-        String(fc['Model Code'] || fc.modelCode || '').trim() === modelCode,
-    );
-    const totalForecastQty = matchingForecasts.reduce(
-      (acc, curr) => acc + parseFloat(curr.Totals || curr.totals || 0),
-      0,
-    );
+    const key = `${season}_${modelCode}`;
+    const totalOrderQty = orderLookup[key] || 0;
+    const totalForecastQty = forecastLookup[key] || 0;
 
     const remaining = sumSelection - totalOrderQty - totalForecastQty;
 
@@ -91,6 +99,18 @@ export function calculateMaterialAvailability(
   });
 
   // 3. Hitung total kebutuhan material (ID) per minggu (Aggregate Demand)
+  const forecastsByModel = {};
+  forecastData.forEach((fc) => {
+    const modelCode = String(fc['Model Code'] || fc.modelCode || '').trim();
+
+    if (!modelCode) return;
+
+    if (!forecastsByModel[modelCode]) {
+      forecastsByModel[modelCode] = [];
+    }
+    forecastsByModel[modelCode].push(fc);
+  });
+
   const weeklyMaterialDemand = {}; // Struktur: { [materialID]: { [weekKey]: demandJumlah } }
   const materialMetadata = {}; // Menyimpan metadata supplier, leadtime, nama, dll.
 
@@ -118,10 +138,7 @@ export function calculateMaterialAvailability(
     }
 
     // Cari demand forecast mingguan untuk model code ini
-    const matchingForecasts = forecastData.filter(
-      (fc) =>
-        String(fc['Model Code'] || fc.modelCode || '').trim() === modelCode,
-    );
+    const matchingForecasts = forecastsByModel[modelCode] || [];
 
     matchingForecasts.forEach((fc) => {
       weekKeys.forEach((week) => {
@@ -156,8 +173,8 @@ export function calculateMaterialAvailability(
 
       weeklyTimeline.push({
         week,
-        demand: parseFloat(demand.toFixed(4)),
-        closingStock: parseFloat(runningStock.toFixed(4)),
+        demand: roundTo4Digit(demand),
+        closingStock: roundTo4Digit(runningStock),
       });
 
       // Catat minggu pertama kali stok jatuh di bawah nol (Shortage)
@@ -190,12 +207,6 @@ export function calculateMaterialAvailability(
   });
 
   finalProjections.sort((a, b) => {
-    const getPriority = (value) => {
-      if (value === 'IMMEDIATE / OVERDUE') return 0;
-      if (value === 'No Action Needed') return 2;
-      return 1; // untuk nilai lain jika ada
-    };
-
     const priorityA = getPriority(a.orderTriggerWeek);
     const priorityB = getPriority(b.orderTriggerWeek);
 
@@ -213,4 +224,15 @@ export function calculateMaterialAvailability(
   });
 
   return { weekKeys, projections: finalProjections };
+}
+
+// Helper function
+function roundTo4Digit(num) {
+  return Math.round(num * 10000) / 10000;
+}
+
+function getPriority(value) {
+  if (value === 'IMMEDIATE / OVERDUE') return 0;
+  if (value === 'No Action Needed') return 2;
+  return 1; // untuk nilai lain jika ada
 }

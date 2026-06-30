@@ -27,8 +27,16 @@ export function calculateOptimumAllocation(
     bomMap[modelCode].push({ id: materialId, cons: consumption });
   });
 
-  // C. DINAMIS: Ambil daftar minggu langsung dari properti key objek baris pertama
-  // Mengabaikan key non-minggu seperti 'style'
+  // C. Pre-normalize Forecast Data sekali di awal (Mengurangi string overhead)
+  const normalizedForecasts = forecastData.map((fc) => {
+    return {
+      raw: fc,
+      modelCode: String(fc['Model Code'] || fc.modelCode || '').trim(),
+      style: String(fc.Model || fc.model || '').trim(),
+    };
+  });
+
+  // D. Dapatkan daftar minggu
   const sampleForecast = forecastData[0] || {};
   const weekKeys = Object.keys(sampleForecast).filter(
     (key) =>
@@ -43,55 +51,49 @@ export function calculateOptimumAllocation(
   weekKeys.forEach((currentWeek) => {
     // Inisialisasi Model Simplex untuk minggu berjalan
     const lpModel = {
-      optimize: 'totalOutputVolume',
+      optimize: 'output',
       opType: 'max',
       constraints: {},
       variables: {},
       ints: {}, // Mengunci agar hasil alokasi berupa bilangan bulat
     };
 
-    // 1. Set Kendala Batas Maksimal berdasarkan Sisa Stok Gudang berjalan
-    Object.keys(currentStockTracker).forEach((matId) => {
-      lpModel.constraints[matId] = { max: currentStockTracker[matId] };
-    });
-
-    // 2. Set Variabel & Kendala Forecast per Style khusus untuk minggu ini
-    forecastData.forEach((fc) => {
+    // 1. Setup Variabel & Kendala untuk setiap Style berdasarkan Forecast Minggu Ini
+    normalizedForecasts.forEach((fc) => {
       // Mengambil nilai demand menggunakan nomor minggu berjalan sebagai key
-      const forecastQty = fc[currentWeek] || 0;
-      if (forecastQty <= 0) return; // Lewati jika minggu ini tidak ada target produksi
+      const forecastQty = fc.raw[currentWeek] || 0;
+      if (forecastQty <= 0) return; // Lewati jika tidak ada target
 
-      const modelCode = String(fc['Model Code'] || fc.modelCode || '').trim();
+      const modelCode = fc.modelCode;
       const components = bomMap[modelCode] || [];
 
       // Fungsi Tujuan: Memaksimalkan total volume produksi
-      lpModel.variables[modelCode] = { totalOutputVolume: 1 };
+      lpModel.variables[modelCode] = { output: 1 };
       lpModel.ints[modelCode] = 1;
 
       // Hubungkan koefisien pemakaian material (BOM) ke dalam model solver
       components.forEach((comp) => {
-        if (lpModel.constraints[comp.id]) {
-          lpModel.variables[modelCode][comp.id] = comp.cons;
+        if (lpModel.constraints[comp.id] === undefined) {
+          lpModel.constraints[comp.id] = {
+            max: currentStockTracker[comp.id] || 0,
+          };
         }
+        lpModel.variables[modelCode][comp.id] = comp.cons;
       });
-
-      // Kendala Batas Atas: Alokasi aktual tidak boleh lebih besar dari target minggu ini
+      // Kendala Batas Atas: forecast minggu ini
       const capConstraintKey = `max_forecast_${modelCode}`;
       lpModel.constraints[capConstraintKey] = { max: forecastQty };
       lpModel.variables[modelCode][capConstraintKey] = 1;
     });
 
-    // 3. JALANKAN METODE SIMPLEX SOLVER
+    // 2. JALANKAN METODE SIMPLEX SOLVER
     const solution = solver.Solve(lpModel);
-    // 4. REKAM HASIL & EKSEKUSI PENGURANGAN STOK GUDANG
+    // 3. REKAM HASIL & EKSEKUSI PENGURANGAN STOK GUDANG
     simulationReport[currentWeek] = {};
-
-    forecastData.forEach((fc) => {
-      const forecastQty = fc[currentWeek] || 0;
+    normalizedForecasts.forEach((fc) => {
+      const forecastQty = fc.raw[currentWeek] || 0;
       if (forecastQty <= 0) return;
-
-      const modelCode = String(fc['Model Code'] || fc.modelCode || '').trim();
-
+      const modelCode = fc.modelCode;
       const actualAllocated = solution[modelCode] || 0;
 
       let status = 'SAFE';
@@ -103,16 +105,16 @@ export function calculateOptimumAllocation(
         actual: actualAllocated,
         shortage: forecastQty - actualAllocated,
         status: status,
-        style: String(fc.Model || fc.model || '').trim(),
+        style: fc.style,
       };
-
-      // Potong stok gudang secara riil untuk dioperasikan ke siklus minggu berikutnya (Week + 1)
+      // Potong stok gudang secara riil untuk minggu berikutnya
       const components = bomMap[modelCode] || [];
       components.forEach((comp) => {
         if (currentStockTracker[comp.id] !== undefined) {
           currentStockTracker[comp.id] -= actualAllocated * comp.cons;
-          if (currentStockTracker[comp.id] < 0.0001)
+          if (currentStockTracker[comp.id] < 0.0001) {
             currentStockTracker[comp.id] = 0;
+          }
         }
       });
     });
@@ -122,18 +124,16 @@ export function calculateOptimumAllocation(
 }
 
 export function transformOptimumReport(report, forecastData) {
-  // 1. Loop berdasarkan data baris input asli Anda
+  const weeks = Object.keys(report); // Extract keys once outside the loop
   return forecastData.map((fc) => {
-    // 2. Sekarang baris tabel memiliki dua informasi identitas di kiri
+    const codeStyle = fc['Model Code'] || fc.modelCode || '';
     const row = {
-      codeStyle: fc['Model Code'] || fc.modelCode || '',
+      codeStyle,
       style: fc.Style || fc.style || '',
     };
 
-    // 3. Masukkan data mingguan seperti biasa
-    Object.keys(report).forEach((week) => {
-      const weekData = report[week][row.codeStyle]; // Cari berdasarkan codeStyle
-
+    weeks.forEach((week) => {
+      const weekData = report[week][codeStyle];
       if (weekData) {
         row[week] = {
           actual: weekData.actual,
