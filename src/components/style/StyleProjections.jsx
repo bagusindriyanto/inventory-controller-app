@@ -111,13 +111,64 @@ export default function StyleProjections({ optimumReport, forecastData }) {
                       {cell.status === 'EMPTY' ? (
                         <span className="text-gray-300">-</span>
                       ) : (
-                        <div className="flex flex-col gap-1 items-center justify-center">
+                        <div className="relative group flex flex-col gap-1 items-center justify-center cursor-help">
                           <div className="font-semibold text-[10px] text-slate-600">
                             {formatNumber(cell.actual)}
                           </div>
                           <div className="text-slate-400 text-[8px]">
                             Forecast: {formatNumber(cell.forecast)}
                           </div>
+
+                          {/* Hover Tooltip: Sisa Material */}
+                          {cell.materialsStock?.length > 0 && (
+                            <div className="absolute bottom-full left-1/2 z-30 mb-2 w-72 -translate-x-1/2 scale-0 rounded-lg bg-slate-950 p-3 text-left text-[10px] text-white shadow-2xl border border-slate-800 transition-all duration-100 group-hover:scale-100 origin-bottom">
+                              <div className="font-bold border-b border-slate-800 pb-1.5 mb-2 text-slate-200 flex justify-between">
+                                <span>Sisa Material (W{week}):</span>
+                              </div>
+                              <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                                {cell.materialsStock.map((mat) => (
+                                  <div
+                                    key={mat.id}
+                                    className="pb-2 border-b border-slate-900 last:border-0 last:pb-0"
+                                  >
+                                    {/* Top Row: Name and Remaining Stock */}
+                                    <div className="flex justify-between items-start gap-2">
+                                      <div
+                                        className="font-semibold text-slate-200 leading-tight truncate max-w-[170px]"
+                                        title={mat.name}
+                                      >
+                                        {mat.name}
+                                      </div>
+                                      <div
+                                        className={
+                                          mat.remaining === 0
+                                            ? 'text-red-400 font-bold font-mono text-right'
+                                            : 'text-emerald-400 font-semibold font-mono text-right'
+                                        }
+                                      >
+                                        {formatNumber(mat.remaining)}
+                                      </div>
+                                    </div>
+
+                                    {/* Bottom Row: ID, Color, Supplier */}
+                                    <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[8px] text-slate-400 font-mono mt-1">
+                                      <span className="text-slate-500">
+                                        {mat.id}
+                                      </span>
+                                      <span>•</span>
+                                      <span>Color: {mat.color}</span>
+                                      <span>•</span>
+                                      <span className="text-indigo-300 font-medium uppercase">
+                                        {mat.supplier}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              {/* Arrow */}
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-950"></div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </td>

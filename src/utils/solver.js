@@ -14,14 +14,25 @@ export function calculateOptimumAllocation(
     }
   });
 
-  // B. Kelompokkan BOM per Style
+  // B. Kelompokkan BOM per Style & kumpulkan metadata material
   const bomMap = {};
+  const materialMetadataMap = {};
   materialDb.forEach((mat) => {
     const modelCode = String(mat['MODEL CODE'] || mat.modelCode || '').trim();
     const materialId = String(mat.ID || mat.id || '').trim();
     const consumption = parseFloat(mat.CONS || mat.cons || 0);
 
-    if (!materialId || !modelCode) return;
+    if (!materialId) return;
+
+    if (!materialMetadataMap[materialId]) {
+      materialMetadataMap[materialId] = {
+        name: mat.NAMA || mat.name || 'Unknown Material',
+        color: mat.COLOR || mat.color || '-',
+        supplier: mat.Supplier || mat.supplier || 'NON NOMINATE',
+      };
+    }
+
+    if (!modelCode) return;
 
     if (!bomMap[modelCode]) bomMap[modelCode] = [];
     bomMap[modelCode].push({ id: materialId, cons: consumption });
@@ -88,7 +99,7 @@ export function calculateOptimumAllocation(
 
     // 2. JALANKAN METODE SIMPLEX SOLVER
     const solution = solver.Solve(lpModel);
-    // 3. REKAM HASIL & EKSEKUSI PENGURANGAN STOK GUDANG
+    // 3. PENGURANGAN STOK GUDANG, REKAM HASIL & SIMPAN DATA SISA MATERIAL MINGGU INI
     simulationReport[currentWeek] = {};
     normalizedForecasts.forEach((fc) => {
       const forecastQty = fc.raw[currentWeek] || 0;
@@ -100,23 +111,42 @@ export function calculateOptimumAllocation(
       if (actualAllocated === 0) status = 'UNFEASIBLE (STOP)';
       else if (actualAllocated < forecastQty) status = 'PARTIAL (SHORTAGE)';
 
-      simulationReport[currentWeek][modelCode] = {
-        forecast: forecastQty,
-        actual: actualAllocated,
-        shortage: forecastQty - actualAllocated,
-        status: status,
-        style: fc.style,
-      };
-      // Potong stok gudang secara riil untuk minggu berikutnya
       const components = bomMap[modelCode] || [];
-      components.forEach((comp) => {
+      const materialsStock = components.map((comp) => {
         if (currentStockTracker[comp.id] !== undefined) {
           currentStockTracker[comp.id] -= actualAllocated * comp.cons;
           if (currentStockTracker[comp.id] < 0.0001) {
             currentStockTracker[comp.id] = 0;
           }
         }
+
+        const meta = materialMetadataMap[comp.id] || {
+          name: 'Unknown Material',
+          color: '-',
+          supplier: 'NON NOMINATE',
+        };
+
+        return {
+          id: comp.id,
+          cons: comp.cons,
+          remaining:
+            currentStockTracker[comp.id] !== undefined
+              ? currentStockTracker[comp.id]
+              : 0,
+          name: meta.name,
+          color: meta.color,
+          supplier: meta.supplier,
+        };
       });
+
+      simulationReport[currentWeek][modelCode] = {
+        forecast: forecastQty,
+        actual: actualAllocated,
+        shortage: forecastQty - actualAllocated,
+        status: status,
+        style: fc.style,
+        materialsStock: materialsStock,
+      };
     });
   });
 
@@ -139,9 +169,15 @@ export function transformOptimumReport(report, forecastData) {
           actual: weekData.actual,
           forecast: weekData.forecast,
           status: weekData.status,
+          materialsStock: weekData.materialsStock || [],
         };
       } else {
-        row[week] = { actual: '-', forecast: '-', status: 'EMPTY' };
+        row[week] = {
+          actual: '-',
+          forecast: '-',
+          status: 'EMPTY',
+          materialsStock: [],
+        };
       }
     });
 
