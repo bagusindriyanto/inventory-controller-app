@@ -1,23 +1,29 @@
 import { useState, useMemo } from 'react';
+import { Layers } from 'lucide-react';
+
 import SheetConnector from './components/sheet/SheetConnector';
 import FileUploader from './components/excel/FileUploader';
+
 import SelectionTable from './components/selection/SelectionTable';
+import EmptySelection from './components/selection/EmptySelection';
+
 import MaterialProjections from './components/material/MaterialProjections';
+import EmptyProjections from './components/material/EmptyProjections';
+
+import StyleProjections from './components/style/StyleProjections';
+import EmptyStyles from './components/style/EmptyStyles';
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
+
 import {
   calculateSelectionRemaining,
   calculateMaterialAvailability,
 } from './utils/dataProcessor';
-import { Layers } from 'lucide-react';
-import SheetStatus from './components/sheet/SheetStatus';
-import FileStatus from './components/excel/FileStatus';
-import EmptyProjections from './components/material/EmptyProjections';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
-import EmptySelection from './components/selection/EmptySelection';
+
 import { useGoogleSheets } from './hooks/useGoogleSheets';
-import { ENVIRONTMENT } from './config/environtment';
-import EmptyStyles from './components/style/EmptyStyles';
-import StyleProjections from './components/style/StyleProjections';
 import { useSolver } from './hooks/useSolver';
+
+import { ENVIRONTMENT } from './config/environtment';
 
 export default function App() {
   const { sheets, loading, error, refetch } = useGoogleSheets(
@@ -80,27 +86,24 @@ export default function App() {
       <main className="flex-1 p-4 mx-auto space-y-6 w-full max-w-7xl md:p-6">
         {/* Kontrol Integrasi Data */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <SheetConnector loading={loading} refetch={refetch} />
+          <SheetConnector
+            sheetData={sheets}
+            loading={loading}
+            error={error}
+            refetch={refetch}
+          />
           <div className="grid grid-cols-1 gap-6 lg:col-span-2 md:grid-cols-2">
             <FileUploader
               title="Database Material (BOM Update)"
+              fileData={materialDb}
               onUploadComplete={(data) => setMaterialDb(data)}
             />
             <FileUploader
               title="Stock Material"
+              fileData={stockData}
               onUploadComplete={(data) => setStockData(data)}
             />
           </div>
-        </div>
-
-        {/* Dashboard Status Indikator Kesiapan Data */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <SheetStatus sheetData={sheets} loading={loading} error={error} />
-          <FileStatus
-            title={'File 4 (Database Material)'}
-            excelData={materialDb}
-          />
-          <FileStatus title={'File 5 (Stock Material)'} excelData={stockData} />
         </div>
 
         <Tabs defaultValue="selection">
@@ -129,7 +132,7 @@ export default function App() {
                 {/* A premium looking loader spinner */}
                 <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
                 <p className="mt-4 text-sm text-slate-500 font-medium">
-                  Running Linear Solver Simulation...
+                  Menghitung Qty Style Teroptimal...
                 </p>
               </div>
             ) : solverError ? (

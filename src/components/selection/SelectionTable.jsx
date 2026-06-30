@@ -49,9 +49,10 @@ export default function SelectionTable({ data }) {
     if (!sortConfig.key || !sortConfig.direction) return filteredData;
 
     const { key, direction } = sortConfig;
+    const transformedKey = key === 'status' ? 'remainingSelection' : key;
     const sorted = [...filteredData].sort((a, b) => {
-      const valA = a[key];
-      const valB = b[key];
+      const valA = a[transformedKey];
+      const valB = b[transformedKey];
 
       // Numeric comparison
       if (typeof valA === 'number' && typeof valB === 'number') {

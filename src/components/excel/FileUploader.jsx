@@ -1,16 +1,18 @@
 // src/components/FileUploader.jsx (Versi murni XLSX, tanpa Papaparse)
 import { useState } from 'react';
-import { UploadCloud, FileSpreadsheet } from 'lucide-react';
+import { UploadCloud, FileSpreadsheet, FileX, FileCheck } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '../ui/card';
+import { cn } from '@/lib/utils';
 
-export default function FileUploader({ title, onUploadComplete }) {
+export default function FileUploader({ title, fileData, onUploadComplete }) {
   const [fileName, setFileName] = useState('');
 
   const handleFileChange = async (e) => {
@@ -59,6 +61,35 @@ export default function FileUploader({ title, onUploadComplete }) {
           </span>
         </label>
       </CardContent>
+      <CardFooter className="gap-3">
+        <div
+          className={cn('p-2 rounded-lg transition-colors duration-300', {
+            'bg-success/20 text-success': fileData,
+            'bg-border text-muted-foreground': !fileData,
+          })}
+        >
+          {fileData ? <FileCheck size={16} /> : <FileX size={16} />}
+        </div>
+        <p
+          className={cn('text-sm font-bold transition-colors duration-300', {
+            'text-success': fileData,
+            'text-muted-foreground': !fileData,
+          })}
+        >
+          {fileData ? `File Terunggah` : 'Belum Ada File'}
+        </p>
+        <p
+          className={cn(
+            'ml-auto text-xs font-bold transition-colors duration-300',
+            {
+              'text-success': fileData,
+              'text-muted-foreground': !fileData,
+            },
+          )}
+        >
+          {`${fileData?.length || 0} items`}
+        </p>
+      </CardFooter>
     </Card>
   );
 }
