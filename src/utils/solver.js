@@ -101,7 +101,9 @@ export function calculateOptimumAllocation(
     // 2. JALANKAN METODE SIMPLEX SOLVER
     const solution = solver.Solve(lpModel);
     // 3. PENGURANGAN STOK GUDANG, REKAM HASIL & SIMPAN DATA SISA MATERIAL MINGGU INI
-    simulationReport[currentWeek] = {};
+    simulationReport[currentWeek] = {
+      allocation: {},
+    };
     normalizedForecasts.forEach((fc) => {
       const forecastQty = fc.raw[currentWeek] || 0;
       if (forecastQty <= 0) return;
@@ -113,41 +115,45 @@ export function calculateOptimumAllocation(
       else if (actualAllocated < forecastQty) status = 'PARTIAL (SHORTAGE)';
 
       const components = bomMap[modelCode] || [];
-      const materialsStock = components.map((comp) => {
-        const forecastMaterialNeeded = forecastQty * comp.cons;
-        const actualMaterialNeeded = actualAllocated * comp.cons;
+      const materialsStock = components
+        .map((comp) => {
+          const forecastMaterialNeeded = forecastQty * comp.cons;
+          const actualMaterialNeeded = actualAllocated * comp.cons;
 
-        if (currentStockTracker[comp.id] !== undefined) {
-          currentStockTracker[comp.id] -= actualMaterialNeeded;
-          if (currentStockTracker[comp.id] < 0.0001) {
-            currentStockTracker[comp.id] = 0;
+          if (currentStockTracker[comp.id] !== undefined) {
+            currentStockTracker[comp.id] -= actualMaterialNeeded;
+            if (currentStockTracker[comp.id] < 0.0001) {
+              currentStockTracker[comp.id] = 0;
+            }
           }
-        }
 
-        const meta = materialMetadataMap[comp.id] || {
-          name: 'Unknown Material',
-          color: '-',
-          unit: 'N/A',
-          supplier: 'NON NOMINATE',
-        };
+          const meta = materialMetadataMap[comp.id] || {
+            name: 'Unknown Material',
+            color: '-',
+            unit: 'N/A',
+            supplier: 'NON NOMINATE',
+          };
 
-        return {
-          id: comp.id,
-          cons: comp.cons,
-          needed: forecastMaterialNeeded,
-          actual: actualMaterialNeeded,
-          remaining:
-            currentStockTracker[comp.id] !== undefined
-              ? currentStockTracker[comp.id]
-              : 0,
-          name: meta.name,
-          color: meta.color,
-          unit: meta.unit,
-          supplier: meta.supplier,
-        };
-      });
+          return {
+            id: comp.id,
+            cons: comp.cons,
+            needed: forecastMaterialNeeded,
+            actual: actualMaterialNeeded,
+            remaining:
+              currentStockTracker[comp.id] !== undefined
+                ? currentStockTracker[comp.id]
+                : 0,
+            name: meta.name,
+            color: meta.color,
+            unit: meta.unit,
+            supplier: meta.supplier,
+          };
+        })
+        .sort(
+          (a, b) => a.remaining - b.remaining || a.name.localeCompare(b.name),
+        );
 
-      simulationReport[currentWeek][modelCode] = {
+      simulationReport[currentWeek].allocation[modelCode] = {
         forecast: forecastQty,
         actual: actualAllocated,
         shortage: forecastQty - actualAllocated,
@@ -156,6 +162,28 @@ export function calculateOptimumAllocation(
         materialsStock: materialsStock,
       };
     });
+
+    simulationReport[currentWeek].remaining = Object.entries(
+      currentStockTracker,
+    )
+      .map(([id, qty]) => {
+        const meta = materialMetadataMap[id] || {
+          name: 'Unknown Material',
+          color: '-',
+          unit: 'N/A',
+          supplier: 'NON NOMINATE',
+        };
+
+        return {
+          id,
+          qty,
+          name: meta.name,
+          color: meta.color,
+          unit: meta.unit,
+          supplier: meta.supplier,
+        };
+      })
+      .sort((a, b) => a.qty - b.qty || a.name.localeCompare(b.name));
   });
 
   return simulationReport;
@@ -171,7 +199,7 @@ export function transformOptimumReport(report, forecastData) {
     };
 
     weeks.forEach((week) => {
-      const weekData = report[week][codeStyle];
+      const weekData = report[week].allocation[codeStyle];
       if (weekData) {
         row[week] = {
           actual: weekData.actual,

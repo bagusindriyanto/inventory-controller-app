@@ -9,15 +9,24 @@ import {
   HoverCardTrigger,
 } from '../ui/hover-card';
 
+const remainingCard = PreviewCard.createHandle();
 const materialCard = PreviewCard.createHandle();
 
 export default function StyleProjections({ optimumReport, forecastData }) {
+  const [openRemaining, setOpenRemaining] = useState(false);
+  const [triggerRemainingId, setTriggerRemainingId] = useState(null);
+
   const [open, setOpen] = useState(false);
   const [triggerId, setTriggerId] = useState(null);
 
   const handleOpenChange = (isOpen, eventDetails) => {
     setOpen(isOpen);
     setTriggerId(eventDetails.trigger?.id ?? null);
+  };
+
+  const handleOpenRemainingChange = (isOpen, eventDetails) => {
+    setOpenRemaining(isOpen);
+    setTriggerRemainingId(eventDetails.trigger?.id ?? null);
   };
 
   // A. Ekstrak daftar header minggu secara dinamis dari keys report
@@ -41,7 +50,8 @@ export default function StyleProjections({ optimumReport, forecastData }) {
               </h3>
               <p className="text-xs text-slate-500">
                 Alokasi kuantitas style teroptimal berdasarkan ketersediaan
-                material
+                material. Arahkan mouse ke sel tabel untuk melihat informasi
+                detail.
               </p>
             </div>
             {/* Search Input */}
@@ -73,15 +83,26 @@ export default function StyleProjections({ optimumReport, forecastData }) {
                 >
                   Style
                 </th>
-                {weeksHeader.map((week) => (
-                  <th
-                    key={`th-${week}`}
-                    scope="col"
-                    className="p-3 text-center font-mono min-w-15"
-                  >
-                    {week}
-                  </th>
-                ))}
+                {weeksHeader.map((week) => {
+                  const remaining = optimumReport[week].remaining;
+                  const payload = { week, remaining };
+
+                  return (
+                    <th
+                      key={`th-${week}`}
+                      scope="col"
+                      className="p-3 text-center font-mono min-w-15"
+                    >
+                      <HoverCardTrigger
+                        handle={remainingCard}
+                        id={`week-${week}`}
+                        payload={payload}
+                      >
+                        {week}
+                      </HoverCardTrigger>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
 
@@ -144,6 +165,59 @@ export default function StyleProjections({ optimumReport, forecastData }) {
         </div>
       </div>
       <HoverCard
+        handle={remainingCard}
+        open={openRemaining}
+        onOpenChange={handleOpenRemainingChange}
+        triggerId={triggerRemainingId}
+      >
+        {({ payload }) => (
+          <HoverCardContent side="top" className="w-72">
+            <h3 className="font-bold">Sisa Material</h3>
+            <div className="flex justify-between pb-1.5 mb-2">
+              <p className="text-xs text-muted-foreground">
+                (W{payload?.week})
+              </p>
+            </div>
+            <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+              {payload?.remaining.map((mat) => (
+                <div
+                  key={mat.id}
+                  className="text-[10px] pb-2 border-b border-slate-300 last:border-0 last:pb-0"
+                >
+                  {/* Top Row: Name and Remaining Stock */}
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="font-semibold leading-tight line-clamp-2 max-w-[160px] uppercase">
+                      {mat.name}
+                    </div>
+                    <div className="font-mono text-right">
+                      <span
+                        className={cn(
+                          mat.qty <= 0 ? 'text-red-400' : 'text-emerald-400',
+                        )}
+                      >
+                        {formatNumber(mat.qty, 2)}
+                      </span>
+                      <span className="font-bold"> {mat.unit}</span>
+                    </div>
+                  </div>
+
+                  {/* Bottom Row: ID, Color, Supplier */}
+                  <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[8px] font-mono mt-1">
+                    <span className="font-medium">{mat.id}</span>
+                    <span>•</span>
+                    <span>{mat.color}</span>
+                    <span>•</span>
+                    <span className="text-muted-foreground font-medium uppercase">
+                      {mat.supplier}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </HoverCardContent>
+        )}
+      </HoverCard>
+      <HoverCard
         handle={materialCard}
         open={open}
         onOpenChange={handleOpenChange}
@@ -168,7 +242,7 @@ export default function StyleProjections({ optimumReport, forecastData }) {
                 >
                   {/* Top Row: Name and Remaining Stock */}
                   <div className="flex justify-between items-start gap-2">
-                    <div className="font-semibold leading-tight line-clamp-2 max-w-[120px]">
+                    <div className="font-semibold leading-tight line-clamp-2 max-w-[120px] uppercase">
                       {mat.name}
                     </div>
                     <div className="font-mono text-right">
