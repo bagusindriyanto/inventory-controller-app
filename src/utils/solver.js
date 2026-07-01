@@ -30,9 +30,15 @@ export function calculateOptimumAllocation(
     bomMap[modelCode].push({ id: materialId, cons: consumption });
   });
 
-  // B. Kumpulkan semua material ID yang dipakai di BOM
+  // B. Kumpulkan semua material ID yang dipakai di BOM & ada di forecast
+  const forecastModelCodes = new Set(
+    forecastData.map((fc) =>
+      String(fc['Model Code'] || fc.modelCode || '').trim(),
+    ),
+  );
   const usedMaterialIds = new Set();
-  Object.values(bomMap).forEach((components) => {
+  Object.entries(bomMap).forEach(([modelCode, components]) => {
+    if (!forecastModelCodes.has(modelCode)) return;
     components.forEach((comp) => usedMaterialIds.add(comp.id));
   });
 
