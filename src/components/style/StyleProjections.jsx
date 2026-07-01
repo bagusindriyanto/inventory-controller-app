@@ -123,7 +123,7 @@ export default function StyleProjections({ optimumReport, forecastData }) {
                           {cell.materialsStock?.length > 0 && (
                             <div className="absolute bottom-full left-1/2 z-30 mb-2 w-72 -translate-x-1/2 scale-0 rounded-lg bg-slate-950 p-3 text-left text-[10px] text-white shadow-2xl border border-slate-800 transition-all duration-100 group-hover:scale-100 origin-bottom">
                               <div className="font-bold border-b border-slate-800 pb-1.5 mb-2 text-slate-200 flex justify-between">
-                                <span>Sisa Material (W{week}):</span>
+                                <span>Kebutuhan Material (W{week}):</span>
                               </div>
                               <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
                                 {cell.materialsStock.map((mat) => (
@@ -134,19 +134,25 @@ export default function StyleProjections({ optimumReport, forecastData }) {
                                     {/* Top Row: Name and Remaining Stock */}
                                     <div className="flex justify-between items-start gap-2">
                                       <div
-                                        className="font-semibold text-slate-200 leading-tight truncate max-w-[170px]"
+                                        className="font-semibold text-slate-200 leading-tight line-clamp-2 max-w-[120px]"
                                         title={mat.name}
                                       >
                                         {mat.name}
                                       </div>
-                                      <div
-                                        className={
-                                          mat.remaining === 0
-                                            ? 'text-red-400 font-bold font-mono text-right'
-                                            : 'text-emerald-400 font-semibold font-mono text-right'
-                                        }
-                                      >
-                                        {formatNumber(mat.remaining)}
+                                      <div>
+                                        <span
+                                          className={
+                                            mat.actual < mat.needed
+                                              ? 'text-red-400 font-bold font-mono text-right'
+                                              : 'text-emerald-400 font-semibold font-mono text-right'
+                                          }
+                                        >
+                                          {formatNumber(mat.actual, 2)}
+                                        </span>
+                                        <span>
+                                          /{formatNumber(mat.needed, 2)}{' '}
+                                          {mat.unit}
+                                        </span>
                                       </div>
                                     </div>
 

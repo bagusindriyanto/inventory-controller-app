@@ -1,7 +1,7 @@
-const numberFormatter = new Intl.NumberFormat('id-ID', {
-  maximumFractionDigits: 0,
-});
+export const formatNumber = (number, fractionDigits = 0) => {
+  const numberFormatter = new Intl.NumberFormat('id-ID', {
+    maximumFractionDigits: fractionDigits,
+  });
 
-export const formatNumber = (number) => {
   return numberFormatter.format(number);
 };
