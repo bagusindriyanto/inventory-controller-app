@@ -5,16 +5,7 @@ export function calculateOptimumAllocation(
   materialDb,
   stockData,
 ) {
-  // A. Transformasikan array stock menjadi Objek Map Kunci-Nilai O(1)
-  const currentStockTracker = {};
-  stockData.forEach((stk) => {
-    const id = String(stk.ID || stk.id || '').trim();
-    if (id) {
-      currentStockTracker[id] = parseFloat(stk.Total || stk.total || 0);
-    }
-  });
-
-  // B. Kelompokkan BOM per Style & kumpulkan metadata material
+  // A. Kelompokkan BOM per Style & kumpulkan metadata material
   const bomMap = {};
   const materialMetadataMap = {};
   materialDb.forEach((mat) => {
@@ -39,7 +30,22 @@ export function calculateOptimumAllocation(
     bomMap[modelCode].push({ id: materialId, cons: consumption });
   });
 
-  // C. Pre-normalize Forecast Data sekali di awal (Mengurangi string overhead)
+  // B. Kumpulkan semua material ID yang dipakai di BOM
+  const usedMaterialIds = new Set();
+  Object.values(bomMap).forEach((components) => {
+    components.forEach((comp) => usedMaterialIds.add(comp.id));
+  });
+
+  // C. Transformasikan array stock, hanya track material yang dipakai solver
+  const currentStockTracker = {};
+  stockData.forEach((stk) => {
+    const id = String(stk.ID || stk.id || '').trim();
+    if (id && usedMaterialIds.has(id)) {
+      currentStockTracker[id] = parseFloat(stk.Total || stk.total || 0);
+    }
+  });
+
+  // D. Pre-normalize Forecast Data sekali di awal (Mengurangi string overhead)
   const normalizedForecasts = forecastData.map((fc) => {
     return {
       raw: fc,
@@ -48,7 +54,7 @@ export function calculateOptimumAllocation(
     };
   });
 
-  // D. Dapatkan daftar minggu
+  // E. Dapatkan daftar minggu
   const sampleForecast = forecastData[0] || {};
   const weekKeys = Object.keys(sampleForecast).filter(
     (key) =>
