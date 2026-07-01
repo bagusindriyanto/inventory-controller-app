@@ -28,6 +28,7 @@ export function calculateOptimumAllocation(
       materialMetadataMap[materialId] = {
         name: mat.NAMA || mat.name || 'Unknown Material',
         color: mat.COLOR || mat.color || '-',
+        unit: mat.UOM || mat.uom || 'N/A',
         supplier: mat.Supplier || mat.supplier || 'NON NOMINATE',
       };
     }
@@ -113,8 +114,11 @@ export function calculateOptimumAllocation(
 
       const components = bomMap[modelCode] || [];
       const materialsStock = components.map((comp) => {
+        const forecastMaterialNeeded = forecastQty * comp.cons;
+        const actualMaterialNeeded = actualAllocated * comp.cons;
+
         if (currentStockTracker[comp.id] !== undefined) {
-          currentStockTracker[comp.id] -= actualAllocated * comp.cons;
+          currentStockTracker[comp.id] -= actualMaterialNeeded;
           if (currentStockTracker[comp.id] < 0.0001) {
             currentStockTracker[comp.id] = 0;
           }
@@ -123,18 +127,22 @@ export function calculateOptimumAllocation(
         const meta = materialMetadataMap[comp.id] || {
           name: 'Unknown Material',
           color: '-',
+          unit: 'N/A',
           supplier: 'NON NOMINATE',
         };
 
         return {
           id: comp.id,
           cons: comp.cons,
+          needed: forecastMaterialNeeded,
+          actual: actualMaterialNeeded,
           remaining:
             currentStockTracker[comp.id] !== undefined
               ? currentStockTracker[comp.id]
               : 0,
           name: meta.name,
           color: meta.color,
+          unit: meta.unit,
           supplier: meta.supplier,
         };
       });

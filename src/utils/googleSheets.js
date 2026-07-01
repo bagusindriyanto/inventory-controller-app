@@ -40,8 +40,15 @@ export const parseCSV = (csvText) =>
 export const fetchSheet = async (spreadsheetId, sheetName, options = {}) => {
   const url = buildCsvUrl(spreadsheetId, sheetName, options);
   const res = await fetch(url);
+
   if (!res.ok) throw new Error(`Gagal fetch "${sheetName}": ${res.status}`);
-  return parseCSV(await res.text());
+
+  const csvText = await res.text();
+  if (csvText.trim().startsWith('<') || csvText.trim().startsWith('{')) {
+    throw new Error(`Sheet ${sheetName} tidak dapat diakses atau query gagal.`);
+  }
+
+  return parseCSV(csvText);
 };
 
 export const fetchAllSheets = async (spreadsheetId, sheetConfigs) => {
