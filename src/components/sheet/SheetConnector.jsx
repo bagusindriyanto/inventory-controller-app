@@ -74,7 +74,7 @@ export default function SheetConnector({ sheetData, loading, error, refetch }) {
           {loading
             ? 'Menghubungkan...'
             : error
-              ? 'Gagal Terkoneksi ke Google Sheets'
+              ? error
               : dataLength > 0
                 ? 'Koneksi Terhubung'
                 : 'Menunggu Sinkronisasi'}
