@@ -31,33 +31,36 @@ export function calculateOptimumAllocation(
   });
 
   // B. Kumpulkan semua material ID yang dipakai di BOM & ada di forecast
-  const forecastModelCodes = new Set(
-    forecastData.map((fc) =>
-      String(fc['Model Code'] || fc.modelCode || '').trim(),
-    ),
-  );
+  const forecastModelCodes = new Set();
+  // C. Pre-normalize Forecast Data sekali di awal (Mengurangi string overhead & loop tunggal)
+  const normalizedForecasts = [];
+  forecastData.forEach((fc) => {
+    const modelCode = String(fc['Model Code'] || fc.modelCode || '').trim();
+    const style = String(fc.Model || fc.model || '').trim();
+    if (!modelCode && !style) return;
+
+    forecastModelCodes.add(modelCode);
+
+    normalizedForecasts.push({
+      raw: fc,
+      modelCode,
+      style,
+    });
+  });
+
   const usedMaterialIds = new Set();
   Object.entries(bomMap).forEach(([modelCode, components]) => {
     if (!forecastModelCodes.has(modelCode)) return;
     components.forEach((comp) => usedMaterialIds.add(comp.id));
   });
 
-  // C. Transformasikan array stock, hanya track material yang dipakai solver
+  // D. Transformasikan array stock, hanya track material yang dipakai solver
   const currentStockTracker = {};
   stockData.forEach((stk) => {
     const id = String(stk.ID || stk.id || '').trim();
     if (id && usedMaterialIds.has(id)) {
       currentStockTracker[id] = parseFloat(stk.Total || stk.total || 0);
     }
-  });
-
-  // D. Pre-normalize Forecast Data sekali di awal (Mengurangi string overhead)
-  const normalizedForecasts = forecastData.map((fc) => {
-    return {
-      raw: fc,
-      modelCode: String(fc['Model Code'] || fc.modelCode || '').trim(),
-      style: String(fc.Model || fc.model || '').trim(),
-    };
   });
 
   // E. Dapatkan daftar minggu

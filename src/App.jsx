@@ -72,10 +72,10 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-lg font-bold tracking-tight">
-                MGM SPO - Material Monitoring
+                MGM Material Monitoring
               </h1>
               <p className="text-xs text-slate-400">
-                Material Tracing & Allocation by SPO
+                Material Tracing & Allocation
               </p>
             </div>
           </div>
