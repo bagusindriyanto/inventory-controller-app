@@ -25,10 +25,10 @@ LABEL A 'Season', C 'Style', D 'Model Code', SUM(H) 'Totals'
       name: 'Forecast Decathlon',
       range: 'A4:AN',
       query: `
-      SELECT C, D, SUM(H), SUM(O), SUM(P), SUM(Q), SUM(R), SUM(S), SUM(T), SUM(U), SUM(V), SUM(W), SUM(X), SUM(Y), SUM(Z), SUM(AA), SUM(AB), SUM(AC), SUM(AD), SUM(AE), SUM(AF), SUM(AG), SUM(AH), SUM(AI), SUM(AJ), SUM(AK), SUM(AL), SUM(AM), SUM(AN)
+      SELECT C, D, SUM(H), SUM(P), SUM(Q), SUM(R), SUM(S), SUM(T), SUM(U), SUM(V), SUM(W), SUM(X), SUM(Y), SUM(Z), SUM(AA), SUM(AB), SUM(AC), SUM(AD), SUM(AE), SUM(AF), SUM(AG), SUM(AH), SUM(AI), SUM(AJ), SUM(AK), SUM(AL), SUM(AM), SUM(AN)
 WHERE A IS NOT NULL
 GROUP BY C, D
-LABEL C 'Style', D 'Model Code', SUM(H) 'Totals', SUM(O) '28', SUM(P) '29', SUM(Q) '30', SUM(R) '31', SUM(S) '32', SUM(T) '33', SUM(U) '34', SUM(V) '35', SUM(W) '36', SUM(X) '37', SUM(Y) '38', SUM(Z) '39', SUM(AA) '40', SUM(AB) '41', SUM(AC) '42', SUM(AD) '43', SUM(AE) '44', SUM(AF) '45', SUM(AG) '46', SUM(AH) '47', SUM(AI) '48', SUM(AJ) '49', SUM(AK) '50', SUM(AL) '51', SUM(AM) '52', SUM(AN) '53'
+LABEL C 'Style', D 'Model Code', SUM(H) 'Totals', SUM(P) '29', SUM(Q) '30', SUM(R) '31', SUM(S) '32', SUM(T) '33', SUM(U) '34', SUM(V) '35', SUM(W) '36', SUM(X) '37', SUM(Y) '38', SUM(Z) '39', SUM(AA) '40', SUM(AB) '41', SUM(AC) '42', SUM(AD) '43', SUM(AE) '44', SUM(AF) '45', SUM(AG) '46', SUM(AH) '47', SUM(AI) '48', SUM(AJ) '49', SUM(AK) '50', SUM(AL) '51', SUM(AM) '52', SUM(AN) '53'
       `,
     },
   ],
