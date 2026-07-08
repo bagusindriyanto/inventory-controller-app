@@ -1,8 +1,4 @@
 import { useState, useMemo } from 'react';
-import { Layers } from 'lucide-react';
-
-import SheetConnector from './components/sheet/SheetConnector';
-import FileUploader from './components/excel/FileUploader';
 
 import SelectionTable from './components/selection/SelectionTable';
 import EmptySelection from './components/selection/EmptySelection';
@@ -24,6 +20,8 @@ import { useGoogleSheets } from './hooks/useGoogleSheets';
 import { useSolver } from './hooks/useSolver';
 
 import { ENVIRONTMENT } from './config/environtment';
+import Navbar from './components/Navbar';
+import FileCard from './components/FileCard';
 
 export default function App() {
   const { sheets, loading, error, refetch } = useGoogleSheets(
@@ -32,7 +30,7 @@ export default function App() {
   );
 
   // Master State untuk Data Sumber
-  const [materialDb, setMaterialDb] = useState(null); // File 4
+  const [materialData, setMaterialData] = useState(null); // File 4
   const [stockData, setStockData] = useState(null); // File 5
 
   // Trigger kalkulasi menggunakan useMemo untuk optimasi performa render
@@ -46,66 +44,36 @@ export default function App() {
   }, [sheets]);
 
   const componentAnalysis = useMemo(() => {
-    if (Object.keys(sheets).length === 0 || !materialDb || !stockData)
+    if (Object.keys(sheets).length === 0 || !materialData || !stockData)
       return null;
     return calculateMaterialAvailability(
       sheets['Forecast Decathlon_3'].data,
-      materialDb,
+      materialData,
       stockData,
     );
-  }, [sheets, materialDb, stockData]);
+  }, [sheets, materialData, stockData]);
 
   const {
     result: optimumReport,
     loading: solverLoading,
     error: solverError,
-  } = useSolver(sheets['Forecast Decathlon_3']?.data, materialDb, stockData);
+  } = useSolver(sheets['Forecast Decathlon_3']?.data, materialData, stockData);
 
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header Panel */}
-      <header className="p-4 text-white border-b shadow-md bg-slate-900 border-slate-800">
-        <div className="flex justify-between items-center mx-auto max-w-7xl">
-          <div className="flex gap-3 items-center">
-            <div className="p-2 rounded-lg bg-primary">
-              <Layers size={22} className="text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight">
-                MGM Material Monitoring
-              </h1>
-              <p className="text-xs text-slate-400">
-                Material Tracing & Allocation
-              </p>
-            </div>
-          </div>
-        </div>
-      </header>
-
+      <Navbar />
       {/* Main Container */}
-      <main className="flex-1 p-4 mx-auto space-y-6 w-full max-w-7xl md:p-6">
+      <main className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-8 p-4 mx-auto w-full max-w-7xl md:p-6">
         {/* Kontrol Integrasi Data */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <SheetConnector
-            sheetData={sheets}
-            loading={loading}
-            error={error}
-            refetch={refetch}
-          />
-          <div className="grid grid-cols-1 gap-6 lg:col-span-2 md:grid-cols-2">
-            <FileUploader
-              title="Database Material (BOM Update)"
-              fileData={materialDb}
-              onUploadComplete={(data) => setMaterialDb(data)}
-            />
-            <FileUploader
-              title="Stock Material"
-              fileData={stockData}
-              onUploadComplete={(data) => setStockData(data)}
-            />
-          </div>
-        </div>
-
+        <FileCard
+          sheetData={sheets}
+          onMaterialDataChange={(data) => setMaterialData(data)}
+          onStockDataChange={(data) => setStockData(data)}
+          loading={loading}
+          error={error}
+          refetch={refetch}
+        />
         <Tabs defaultValue="selection">
           <TabsList>
             <TabsTrigger value="selection">Sisa Selection</TabsTrigger>
@@ -140,10 +108,7 @@ export default function App() {
                 Error running solver: {solverError}
               </div>
             ) : optimumReport ? (
-              <StyleProjections
-                optimumReport={optimumReport}
-                forecastData={sheets['Forecast Decathlon_3'].data}
-              />
+              <StyleProjections optimumReport={optimumReport} />
             ) : (
               <EmptyStyles />
             )}

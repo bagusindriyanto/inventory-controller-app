@@ -1,95 +1,158 @@
 // src/components/FileUploader.jsx (Versi murni XLSX, tanpa Papaparse)
 import { useState } from 'react';
-import { UploadCloud, FileSpreadsheet, FileX, FileCheck } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '../ui/card';
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { Field, FieldLabel } from '../ui/field';
+import { UploadCloudIcon } from 'lucide-react';
+import { FileSpreadsheetIcon } from 'lucide-react';
 
-export default function FileUploader({ title, fileData, onUploadComplete }) {
+export default function FileUploader({ title, onUploadComplete }) {
+  const [isDragging, setIsDragging] = useState(false);
+  const [workbook, setWorkbook] = useState(null);
+  const [sheetNames, setSheetNames] = useState([]);
+  const [selectedSheet, setSelectedSheet] = useState('');
   const [fileName, setFileName] = useState('');
 
-  const handleFileChange = async (e) => {
-    const file = e.target.files[0];
+  const handleFileChange = (file) => {
     if (!file) return;
     setFileName(file.name);
 
     const reader = new FileReader();
     reader.onload = (evt) => {
-      const bstr = evt.target.result;
-      // XLSX.read bisa membaca file .xlsx lokal secara otomatis
-      const workbook = XLSX.read(bstr, { type: 'binary' });
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
+      const arrayBuffer = evt.target.result;
+      const wb = XLSX.read(arrayBuffer, { type: 'array' });
 
-      // Konversi baris spreadsheet menjadi JSON objek
-      const rawData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-      onUploadComplete(rawData);
+      setWorkbook(wb);
+      setSheetNames(wb.SheetNames);
+      setSelectedSheet(wb.SheetNames[0]);
+      loadSheetData(wb, wb.SheetNames[0]);
     };
 
-    reader.readAsBinaryString(file);
+    reader.readAsArrayBuffer(file);
   };
 
+  const loadSheetData = (wb, sheetName) => {
+    const ws = wb.Sheets[sheetName];
+    const rawData = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    onUploadComplete(rawData);
+  };
+
+  const handleSheetChange = (value) => {
+    setSelectedSheet(value);
+    if (workbook) {
+      loadSheetData(workbook, value);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFileChange(e.dataTransfer.files[0]);
+    }
+  };
+
+  const sheetItems = sheetNames.map((name) => ({
+    label: name,
+    value: name,
+  }));
+
   return (
-    <Card className="shadow-xs">
-      <CardHeader>
-        <CardTitle className="flex gap-2 items-center text-sm font-bold">
-          <FileSpreadsheet className="text-emerald-600" size={18} /> {title}
-        </CardTitle>
-        <CardDescription className="text-xs">
-          Pastikan file hanya memiliki sheet yang dibutuhkan dan memiliki format
-          .xlsx
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex-1">
-        <label className="flex flex-col justify-center items-center p-4 h-full text-center rounded-xl border-2 border-dashed transition-colors cursor-pointer border-slate-200 hover:border-emerald-500 bg-slate-50">
-          <input
-            type="file"
-            accept=".xlsx"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-          <UploadCloud className="mx-auto mb-2 text-slate-400" size={28} />
-          <span className="block text-xs font-semibold text-slate-600">
-            {fileName ? fileName : 'Pilih File Excel'}
-          </span>
-        </label>
-      </CardContent>
-      <CardFooter className="gap-3">
-        <div
-          className={cn('p-2 rounded-lg transition-colors duration-300', {
-            'bg-success/20 text-success': fileData,
-            'bg-border text-muted-foreground': !fileData,
-          })}
-        >
-          {fileData ? <FileCheck size={16} /> : <FileX size={16} />}
-        </div>
-        <p
-          className={cn('text-sm font-bold transition-colors duration-300', {
-            'text-success': fileData,
-            'text-muted-foreground': !fileData,
-          })}
-        >
-          {fileData ? `File Terunggah` : 'Belum Ada File'}
+    <div className="space-y-2">
+      <div className="space-y-1">
+        <h3 className="flex gap-2 items-center text-sm font-bold">
+          <FileSpreadsheetIcon className="text-emerald-600" size={18} /> {title}
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          Pastikan file memiliki format .xlsx
         </p>
-        <p
+      </div>
+      <label
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={handleDrop}
+        className={cn(
+          'flex flex-col justify-center items-center p-4 min-h-25 text-center rounded-xl border-2 border-dashed transition-all cursor-pointer',
+          {
+            'scale-[1.02] border-emerald-500 bg-emerald-500/10': isDragging,
+            'border-muted hover:border-emerald-500 hover:bg-muted/50':
+              !isDragging,
+          },
+        )}
+      >
+        <input
+          type="file"
+          accept=".xlsx"
+          onChange={(e) =>
+            e.target.files && handleFileChange(e.target.files[0])
+          }
+          className="hidden"
+        />
+        <UploadCloudIcon
           className={cn(
-            'ml-auto text-xs font-bold transition-colors duration-300',
-            {
-              'text-success': fileData,
-              'text-muted-foreground': !fileData,
-            },
+            'mx-auto mb-2',
+            isDragging ? 'text-emerald-600' : 'text-muted-foreground',
           )}
+          size={28}
+        />
+        {fileName ? (
+          <p
+            className={cn(
+              'text-xs font-medium',
+              isDragging ? 'text-emerald-600' : 'text-muted-foreground',
+            )}
+          >
+            {fileName}
+          </p>
+        ) : (
+          <div className="space-y-0.5 text-center">
+            <p className="text-sm text-muted-foreground font-medium">
+              Drag & Drop File Di Sini
+            </p>
+            <p className="text-xs text-muted-foreground font-light">
+              atau klik untuk browse
+            </p>
+          </div>
+        )}
+      </label>
+      <Field orientation="horizontal">
+        <FieldLabel>Pilih sheet:</FieldLabel>
+        <Select
+          items={sheetItems}
+          value={selectedSheet}
+          onValueChange={handleSheetChange}
+          disabled={!workbook}
         >
-          {`${fileData?.length || 0} items`}
-        </p>
-      </CardFooter>
-    </Card>
+          <SelectTrigger className="w-full max-w-36">
+            <SelectValue placeholder="Pilih sheet" />
+          </SelectTrigger>
+          <SelectContent align="end">
+            <SelectGroup>
+              {sheetItems.map((item) => (
+                <SelectItem
+                  className="focus:bg-emerald-600"
+                  key={item.value}
+                  value={item.value}
+                >
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </Field>
+    </div>
   );
 }

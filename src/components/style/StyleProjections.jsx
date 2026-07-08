@@ -1,6 +1,5 @@
 import { cn } from '@/lib/utils';
 import { formatNumber } from '@/utils/numberFormatter';
-import { transformOptimumReport } from '@/utils/solver';
 import { PreviewCard } from '@base-ui/react';
 import { useState, useMemo } from 'react';
 import {
@@ -8,16 +7,42 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '../ui/hover-card';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  flexRender,
+} from '@tanstack/react-table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../ui/table';
+import { Input } from '../ui/input';
+import { Button } from '../ui/button';
+import { ChevronsUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const remainingCard = PreviewCard.createHandle();
 const materialCard = PreviewCard.createHandle();
 
-export default function StyleProjections({ optimumReport, forecastData }) {
+export default function StyleProjections({ optimumReport }) {
   const [openRemaining, setOpenRemaining] = useState(false);
   const [triggerRemainingId, setTriggerRemainingId] = useState(null);
 
   const [open, setOpen] = useState(false);
   const [triggerId, setTriggerId] = useState(null);
+
+  const [sorting, setSorting] = useState([]);
+  const [columnFilters, setColumnFilters] = useState([]);
+  const [pagination, setPagination] = useState({
+    pageIndex: 0,
+    pageSize: 10,
+  });
 
   const handleOpenChange = (isOpen, eventDetails) => {
     setOpen(isOpen);
@@ -29,15 +54,116 @@ export default function StyleProjections({ optimumReport, forecastData }) {
     setTriggerRemainingId(eventDetails.trigger?.id ?? null);
   };
 
-  // A. Ekstrak daftar header minggu secara dinamis dari keys report
-  const weeksHeader = useMemo(() => {
-    return Object.keys(optimumReport).sort((a, b) => parseInt(a) - parseInt(b));
-  }, [optimumReport]);
+  // A. Ekstrak daftar header minggu dan baris tabel langsung dari data pre-transformed
+  const weeksHeader = optimumReport.weeks;
+  const tableRows = optimumReport.rows;
 
-  // B. Transformasikan data report ke bentuk baris tabel (Horizontal Style)
-  const tableRows = useMemo(() => {
-    return transformOptimumReport(optimumReport, forecastData);
-  }, [optimumReport, forecastData]);
+  // Columns definition for TanStack Table
+  const columns = useMemo(() => {
+    return [
+      {
+        accessorKey: 'modelCode',
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+            // className="-ml-2 hover:bg-slate-200 text-xs font-semibold uppercase text-slate-600 w-full justify-start"
+          >
+            Model Code
+            <ChevronsUpDown data-icon="inline-end" />
+          </Button>
+        ),
+        cell: ({ row }) => row.getValue('modelCode'),
+      },
+      {
+        accessorKey: 'style',
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+            // className="-ml-2 hover:bg-slate-200 text-xs font-semibold uppercase text-slate-600 w-full justify-start"
+          >
+            Style
+            <ChevronsUpDown data-icon="inline-end" />
+          </Button>
+        ),
+        cell: ({ row }) => row.getValue('style'),
+      },
+      ...weeksHeader.map((week) => ({
+        id: week,
+        accessorFn: (row) => {
+          const val = row[week]?.actual;
+          return typeof val === 'number' ? val : -1;
+        },
+        header: ({ column }) => {
+          const remaining = optimumReport.remaining[week] || [];
+          const payload = { week, remaining };
+          return (
+            <HoverCardTrigger
+              handle={remainingCard}
+              id={`week-${week}`}
+              payload={payload}
+            >
+              <Button
+                variant="ghost"
+                onClick={() =>
+                  column.toggleSorting(column.getIsSorted() === 'asc')
+                }
+                // className="p-1 hover:bg-slate-200 text-xs font-semibold font-mono text-slate-600 inline-flex items-center mx-auto"
+              >
+                {week}
+                <ChevronsUpDown data-icon="inline-end" />
+              </Button>
+            </HoverCardTrigger>
+          );
+        },
+        cell: ({ row }) => {
+          const cellData = row.original[week];
+          if (!cellData || cellData.status === 'EMPTY') {
+            return <span className="text-gray-300">-</span>;
+          }
+
+          const materialsStock = cellData.materialsStock || [];
+          const payload = { week, style: row.original.style, materialsStock };
+
+          return (
+            <div className="flex flex-col gap-1 items-center justify-center">
+              <HoverCardTrigger
+                handle={materialCard}
+                id={`${row.original.modelCode}-${row.original.style}-${week}`}
+                payload={payload}
+                render={
+                  <div className="font-semibold text-[10px] text-slate-600 cursor-pointer hover:underline" />
+                }
+              >
+                {formatNumber(cellData.actual)}
+              </HoverCardTrigger>
+              <div className="text-slate-400 text-[8px]">
+                Forecast: {formatNumber(cellData.forecast)}
+              </div>
+            </div>
+          );
+        },
+      })),
+    ];
+  }, [weeksHeader, optimumReport]);
+
+  const table = useReactTable({
+    data: tableRows,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    onSortingChange: setSorting,
+    getSortedRowModel: getSortedRowModel(),
+    onColumnFiltersChange: setColumnFilters,
+    getFilteredRowModel: getFilteredRowModel(),
+    onPaginationChange: setPagination,
+    getPaginationRowModel: getPaginationRowModel(),
+    state: {
+      sorting,
+      columnFilters,
+      pagination,
+    },
+  });
 
   return (
     <>
@@ -55,7 +181,16 @@ export default function StyleProjections({ optimumReport, forecastData }) {
               </p>
             </div>
             {/* Search Input */}
-            <div className="relative w-full sm:w-64"></div>
+            <div className="relative w-full sm:w-64">
+              <Input
+                placeholder="Filter styles..."
+                value={table.getColumn('style')?.getFilterValue() ?? ''}
+                onChange={(event) =>
+                  table.getColumn('style')?.setFilterValue(event.target.value)
+                }
+                className="w-full bg-white"
+              />
+            </div>
           </div>
         </div>
 
@@ -67,103 +202,140 @@ export default function StyleProjections({ optimumReport, forecastData }) {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left border-collapse">
+          <Table className="text-xs">
             {/* HEADER TABEL */}
-            <thead>
-              <tr className="font-semibold uppercase border-b bg-slate-100 text-slate-600 border-slate-200">
-                <th
-                  scope="col"
-                  className="sticky left-0 z-10 bg-slate-100 p-3 hover:bg-slate-200 w-16"
-                >
-                  Model Code
-                </th>
-                <th
-                  scope="col"
-                  className="sticky left-16 z-10 bg-slate-100 p-3 hover:bg-slate-200 min-w-50"
-                >
-                  Style
-                </th>
-                {weeksHeader.map((week) => {
-                  const remaining = optimumReport[week].remaining;
-                  const payload = { week, remaining };
-
-                  return (
-                    <th
-                      key={`th-${week}`}
-                      scope="col"
-                      className="p-3 text-center font-mono min-w-15"
-                    >
-                      <HoverCardTrigger
-                        handle={remainingCard}
-                        id={`week-${week}`}
-                        payload={payload}
-                      >
-                        {week}
-                      </HoverCardTrigger>
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext(),
+                          )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
 
             {/* ISI ISI TABEL (BARIS) */}
-            <tbody className="divide-y divide-slate-100">
-              {tableRows.map((row) => (
-                <tr
-                  key={`${row.codeStyle}-${row.style}`}
-                  className="hover:bg-slate-50 transition-colors"
-                >
-                  {/* Kolom Nama Style (Sticky di kiri agar jika digeser tidak hilang) */}
-                  <td className="sticky left-0 z-10 p-3 font-mono font-medium bg-slate-50 shadow-md text-slate-600 w-16">
-                    {row.codeStyle}
-                  </td>
-                  <td className="sticky left-16 z-10 p-3 font-medium uppercase bg-slate-50 text-slate-700">
-                    {row.style}
-                  </td>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    // className="hover:bg-slate-50 transition-colors"
+                  >
+                    {row.getVisibleCells().map((cell) => {
+                      const isModelCode = cell.column.id === 'modelCode';
+                      const isStyle = cell.column.id === 'style';
 
-                  {/* Looping Kolom Minggu Berjalan */}
-                  {weeksHeader.map((week) => {
-                    const cell = row[week];
-                    const materialsStock = cell?.materialsStock || [];
-                    const payload = { week, style: row.style, materialsStock };
+                      if (isModelCode) {
+                        return (
+                          <TableCell
+                            key={cell.id}
+                            className="sticky left-0 z-10 p-3 bg-slate-50 shadow-md text-slate-600 w-16 font-mono font-medium border-r border-slate-100"
+                          >
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext(),
+                            )}
+                          </TableCell>
+                        );
+                      }
 
-                    return (
-                      <td
-                        key={`td-${week}`}
-                        className={cn('p-3 text-center font-mono bg-white', {
-                          'bg-green-100': cell.status === 'SAFE',
-                          'bg-yellow-100': cell.status === 'PARTIAL (SHORTAGE)',
-                          'bg-red-100': cell.status === 'UNFEASIBLE (STOP)',
-                        })}
-                      >
-                        {cell.status === 'EMPTY' ? (
-                          <span className="text-gray-300">-</span>
-                        ) : (
-                          <div className="flex flex-col gap-1 items-center justify-center">
-                            <HoverCardTrigger
-                              handle={materialCard}
-                              id={`${row.codeStyle}-${row.style}-${week}`}
-                              payload={payload}
-                              render={
-                                <div className="font-semibold text-[10px] text-slate-600" />
-                              }
-                            >
-                              {formatNumber(cell.actual)}
-                            </HoverCardTrigger>
-                            <div className="text-slate-400 text-[8px]">
-                              Forecast: {formatNumber(cell.forecast)}
-                            </div>
-                          </div>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      if (isStyle) {
+                        return (
+                          <TableCell
+                            key={cell.id}
+                            className="sticky left-16 z-10 p-3 bg-slate-50 shadow-md text-slate-700 font-medium uppercase min-w-50 border-r border-slate-100"
+                          >
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext(),
+                            )}
+                          </TableCell>
+                        );
+                      }
+
+                      // Week columns
+                      const week = cell.column.id;
+                      const cellData = row.original[week];
+                      const status = cellData?.status;
+
+                      return (
+                        <TableCell
+                          key={cell.id}
+                          className={cn('p-3 text-center font-mono bg-white', {
+                            'bg-green-100': status === 'SAFE',
+                            'bg-yellow-100': status === 'PARTIAL (SHORTAGE)',
+                            'bg-red-100': status === 'UNFEASIBLE (STOP)',
+                          })}
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext(),
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center text-slate-500 font-medium"
+                  >
+                    No styles found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* PAGINATION CONTROLS */}
+        <div className="flex items-center justify-between p-4 border-t border-slate-100 bg-slate-50 text-xs">
+          <div className="text-slate-500 font-medium">
+            Menampilkan{' '}
+            {table.getState().pagination.pageIndex *
+              table.getState().pagination.pageSize +
+              1}{' '}
+            sampai{' '}
+            {Math.min(
+              (table.getState().pagination.pageIndex + 1) *
+                table.getState().pagination.pageSize,
+              table.getFilteredRowModel().rows.length,
+            )}{' '}
+            dari {table.getFilteredRowModel().rows.length} styles
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              <ChevronLeft data-icon="inline-start" />
+              Sebelumnya
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              Selanjutnya
+              <ChevronRight data-icon="inline-end" />
+            </Button>
+          </div>
         </div>
       </div>
+
       <HoverCard
         handle={remainingCard}
         open={openRemaining}
@@ -217,6 +389,7 @@ export default function StyleProjections({ optimumReport, forecastData }) {
           </HoverCardContent>
         )}
       </HoverCard>
+
       <HoverCard
         handle={materialCard}
         open={open}
