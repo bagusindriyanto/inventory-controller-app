@@ -21,7 +21,7 @@ import { useSolver } from './hooks/useSolver';
 
 import { ENVIRONTMENT } from './config/environtment';
 import Navbar from './components/Navbar';
-import FileCard from './components/FileCard';
+import FileDialog from './components/FileDialog';
 
 export default function App() {
   const { sheets, loading, error, refetch } = useGoogleSheets(
@@ -64,22 +64,24 @@ export default function App() {
       {/* Header Panel */}
       <Navbar />
       {/* Main Container */}
-      <main className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-8 p-4 mx-auto w-full max-w-7xl md:p-6">
+      <main className="p-4 mx-auto w-full max-w-7xl md:p-6">
         {/* Kontrol Integrasi Data */}
-        <FileCard
-          sheetData={sheets}
-          onMaterialDataChange={(data) => setMaterialData(data)}
-          onStockDataChange={(data) => setStockData(data)}
-          loading={loading}
-          error={error}
-          refetch={refetch}
-        />
         <Tabs defaultValue="selection">
-          <TabsList>
-            <TabsTrigger value="selection">Sisa Selection</TabsTrigger>
-            <TabsTrigger value="material">Proyeksi Material</TabsTrigger>
-            <TabsTrigger value="style">Proyeksi Style</TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between">
+            <TabsList>
+              <TabsTrigger value="selection">Sisa Selection</TabsTrigger>
+              <TabsTrigger value="material">Proyeksi Material</TabsTrigger>
+              <TabsTrigger value="style">Proyeksi Style</TabsTrigger>
+            </TabsList>
+            <FileDialog
+              sheetData={sheets}
+              onMaterialDataChange={(data) => setMaterialData(data)}
+              onStockDataChange={(data) => setStockData(data)}
+              loading={loading}
+              error={error}
+              refetch={refetch}
+            />
+          </div>
           <TabsContent value="selection">
             {selectionAnalysis && selectionAnalysis.length > 0 ? (
               <SelectionTable data={selectionAnalysis} />
