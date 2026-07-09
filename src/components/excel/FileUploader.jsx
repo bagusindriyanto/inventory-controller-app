@@ -69,7 +69,7 @@ export default function FileUploader({ title, onUploadComplete }) {
   return (
     <div className="space-y-2">
       <div className="space-y-1">
-        <h3 className="flex gap-2 items-center text-sm font-bold">
+        <h3 className="flex gap-2 items-center text-sm font-semibold">
           <FileSpreadsheetIcon className="text-emerald-600" size={18} /> {title}
         </h3>
         <p className="text-xs text-muted-foreground">
@@ -136,7 +136,7 @@ export default function FileUploader({ title, onUploadComplete }) {
           disabled={!workbook}
         >
           <SelectTrigger className="w-full max-w-36">
-            <SelectValue placeholder="Pilih sheet" />
+            <SelectValue placeholder="Nama sheet" />
           </SelectTrigger>
           <SelectContent align="end">
             <SelectGroup>

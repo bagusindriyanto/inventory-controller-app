@@ -75,6 +75,8 @@ export default function App() {
             </TabsList>
             <FileDialog
               sheetData={sheets}
+              materialData={materialData}
+              stockData={stockData}
               onMaterialDataChange={(data) => setMaterialData(data)}
               onStockDataChange={(data) => setStockData(data)}
               loading={loading}

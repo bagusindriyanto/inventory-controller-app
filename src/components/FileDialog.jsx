@@ -1,25 +1,7 @@
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from '@/components/ui/drawer';
-import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -30,41 +12,86 @@ import { Separator } from './ui/separator';
 import FileUploader from './excel/FileUploader';
 import { FileUpIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { Link2Icon } from 'lucide-react';
+import { FileSpreadsheetIcon } from 'lucide-react';
+import { XCircleIcon } from 'lucide-react';
+import { CheckCircle2Icon } from 'lucide-react';
+import { Spinner } from './ui/spinner';
 
 export default function FileDialog({
   sheetData,
+  materialData,
+  stockData,
   onMaterialDataChange,
   onStockDataChange,
   loading,
   error,
   refetch,
 }) {
+  const dataLength = Object.keys(sheetData)?.length || 0;
+
   return (
     <Dialog>
-      <DialogTrigger render={<Button size="lg" />}>
-        <FileUpIcon data-icon="inline-start" />
-        Upload File
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-6xl">
+      <Tooltip>
+        <TooltipTrigger
+          render={<DialogTrigger render={<Button size="lg" />} />}
+        >
+          <FileUpIcon data-icon="inline-start" />
+          Upload File
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <ol className="space-y-1">
+            <li className="flex items-center justify-between gap-4">
+              Koneksi ke Google Sheets
+              {dataLength > 0 && !loading && (
+                <CheckCircle2Icon className="size-4 text-green-300" />
+              )}
+              {error && !loading && (
+                <XCircleIcon className="size-4 text-red-300" />
+              )}
+              {loading && <Spinner className="text-sky-300" />}
+            </li>
+            <li className="flex items-center justify-between gap-4">
+              Database Material (BOM Update)
+              {materialData ? (
+                <CheckCircle2Icon className="size-4 text-green-300" />
+              ) : (
+                <XCircleIcon className="size-4 text-red-300" />
+              )}
+            </li>
+            <li className="flex items-center justify-between gap-4">
+              Stock Material
+              {stockData ? (
+                <CheckCircle2Icon className="size-4 text-green-300" />
+              ) : (
+                <XCircleIcon className="size-4 text-red-300" />
+              )}
+            </li>
+          </ol>
+        </TooltipContent>
+      </Tooltip>
+      <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
-          <DialogTitle>Upload File</DialogTitle>
-          <DialogDescription>Upload file anda di sini.</DialogDescription>
+          <DialogTitle className="font-bold">Upload File</DialogTitle>
         </DialogHeader>
-        <div className="-mx-4 no-scrollbar max-h-[50vh] overflow-y-auto p-4 grid grid-cols-3 gap-6">
+        <div className="no-scrollbar max-h-[50vh] overflow-y-auto px-3 py-1 space-y-8">
           <SheetConnector
-            sheetData={sheetData}
+            dataLength={dataLength}
             loading={loading}
             error={error}
             refetch={refetch}
           />
-          <FileUploader
-            title="Database Material (BOM Update)"
-            onUploadComplete={onMaterialDataChange}
-          />
-          <FileUploader
-            title="Stock Material"
-            onUploadComplete={onStockDataChange}
-          />
+          <div className="grid grid-cols-2 gap-8">
+            <FileUploader
+              title="Database Material (BOM Update)"
+              onUploadComplete={onMaterialDataChange}
+            />
+            <FileUploader
+              title="Stock Material"
+              onUploadComplete={onStockDataChange}
+            />
+          </div>
         </div>
         <DialogFooter>
           <DialogClose render={<Button variant="outline">Batal</Button>} />
