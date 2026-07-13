@@ -1,8 +1,7 @@
 import { cn } from '@/lib/utils';
 import { formatNumber } from '@/utils/numberFormatter';
-import { transformOptimumReport } from '@/utils/solver';
 import { PreviewCard } from '@base-ui/react';
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import {
   HoverCard,
   HoverCardContent,
@@ -12,7 +11,7 @@ import {
 const remainingCard = PreviewCard.createHandle();
 const materialCard = PreviewCard.createHandle();
 
-export default function StyleProjections({ optimumReport, forecastData }) {
+export default function StyleProjections({ optimumReport }) {
   const [openRemaining, setOpenRemaining] = useState(false);
   const [triggerRemainingId, setTriggerRemainingId] = useState(null);
 
@@ -29,15 +28,14 @@ export default function StyleProjections({ optimumReport, forecastData }) {
     setTriggerRemainingId(eventDetails.trigger?.id ?? null);
   };
 
-  // A. Ekstrak daftar header minggu secara dinamis dari keys report
-  const weeksHeader = useMemo(() => {
-    return Object.keys(optimumReport).sort((a, b) => parseInt(a) - parseInt(b));
-  }, [optimumReport]);
+  // const weeksHeader = optimumReport.weeks;
+  // const tableRows = optimumReport.rows;
 
-  // B. Transformasikan data report ke bentuk baris tabel (Horizontal Style)
-  const tableRows = useMemo(() => {
-    return transformOptimumReport(optimumReport, forecastData);
-  }, [optimumReport, forecastData]);
+  const {
+    weeks: weeksHeader,
+    rows: tableRows,
+    remaining: remainingData,
+  } = optimumReport;
 
   return (
     <>
@@ -84,7 +82,7 @@ export default function StyleProjections({ optimumReport, forecastData }) {
                   Style
                 </th>
                 {weeksHeader.map((week) => {
-                  const remaining = optimumReport[week].remaining;
+                  const remaining = remainingData[week];
                   const payload = { week, remaining };
 
                   return (
@@ -110,12 +108,12 @@ export default function StyleProjections({ optimumReport, forecastData }) {
             <tbody className="divide-y divide-slate-100">
               {tableRows.map((row) => (
                 <tr
-                  key={`${row.codeStyle}-${row.style}`}
+                  key={`${row.modelCode}-${row.style}`}
                   className="hover:bg-slate-50 transition-colors"
                 >
                   {/* Kolom Nama Style (Sticky di kiri agar jika digeser tidak hilang) */}
                   <td className="sticky left-0 z-10 p-3 font-mono font-medium bg-slate-50 shadow-md text-slate-600 w-16">
-                    {row.codeStyle}
+                    {row.modelCode}
                   </td>
                   <td className="sticky left-16 z-10 p-3 font-medium uppercase bg-slate-50 text-slate-700">
                     {row.style}
@@ -142,7 +140,7 @@ export default function StyleProjections({ optimumReport, forecastData }) {
                           <div className="flex flex-col gap-1 items-center justify-center">
                             <HoverCardTrigger
                               handle={materialCard}
-                              id={`${row.codeStyle}-${row.style}-${week}`}
+                              id={`${row.modelCode}-${row.style}-${week}`}
                               payload={payload}
                               render={
                                 <div className="font-semibold text-[10px] text-slate-600" />

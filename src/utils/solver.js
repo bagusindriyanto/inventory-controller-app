@@ -73,6 +73,7 @@ export function calculateOptimumAllocation(
   );
 
   const simulationReport = {};
+  const remainingStockByWeek = {};
 
   // --- RUN SIMULATION LOOP MINGGUAN ---
   weekKeys.forEach((currentWeek) => {
@@ -199,22 +200,30 @@ export function calculateOptimumAllocation(
         };
       })
       .sort((a, b) => a.qty - b.qty || a.name.localeCompare(b.name));
+
+    remainingStockByWeek[currentWeek] = simulationReport[currentWeek].remaining;
   });
 
-  return simulationReport;
+  const rows = transformOptimumReport(simulationReport, forecastData);
+
+  return {
+    weeks: weekKeys.sort((a, b) => parseInt(a) - parseInt(b)),
+    rows,
+    remaining: remainingStockByWeek,
+  };
 }
 
 export function transformOptimumReport(report, forecastData) {
   const weeks = Object.keys(report); // Extract keys once outside the loop
   return forecastData.map((fc) => {
-    const codeStyle = fc['Model Code'] || fc.modelCode || '';
+    const modelCode = fc['Model Code'] || fc.modelCode || '';
     const row = {
-      codeStyle,
+      modelCode,
       style: fc.Style || fc.style || '',
     };
 
     weeks.forEach((week) => {
-      const weekData = report[week].allocation[codeStyle];
+      const weekData = report[week].allocation[modelCode];
       if (weekData) {
         row[week] = {
           actual: weekData.actual,

@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { Layers } from 'lucide-react';
 
 import SheetConnector from './components/sheet/SheetConnector';
 import FileUploader from './components/excel/FileUploader';
@@ -24,6 +23,7 @@ import { useGoogleSheets } from './hooks/useGoogleSheets';
 import { useSolver } from './hooks/useSolver';
 
 import { ENVIRONTMENT } from './config/environtment';
+import Navbar from './components/Navbar';
 
 export default function App() {
   const { sheets, loading, error, refetch } = useGoogleSheets(
@@ -64,23 +64,7 @@ export default function App() {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header Panel */}
-      <header className="p-4 text-white border-b shadow-md bg-slate-900 border-slate-800">
-        <div className="flex justify-between items-center mx-auto max-w-7xl">
-          <div className="flex gap-3 items-center">
-            <div className="p-2 rounded-lg bg-primary">
-              <Layers size={22} className="text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight">
-                MGM Material Monitoring
-              </h1>
-              <p className="text-xs text-slate-400">
-                Material Tracing & Allocation
-              </p>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Navbar />
 
       {/* Main Container */}
       <main className="flex-1 p-4 mx-auto space-y-6 w-full max-w-7xl md:p-6">
@@ -140,10 +124,7 @@ export default function App() {
                 Error running solver: {solverError}
               </div>
             ) : optimumReport ? (
-              <StyleProjections
-                optimumReport={optimumReport}
-                forecastData={sheets['Forecast Decathlon_3'].data}
-              />
+              <StyleProjections optimumReport={optimumReport} />
             ) : (
               <EmptyStyles />
             )}
