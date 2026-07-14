@@ -1,5 +1,5 @@
 // src/components/FileUploader.jsx (Versi murni XLSX, tanpa Papaparse)
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { UploadCloud, FileSpreadsheet, FileX, FileCheck } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import {
@@ -11,9 +11,20 @@ import {
   CardTitle,
 } from '../ui/card';
 import { cn } from '@/lib/utils';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
 
 export default function FileUploader({ title, fileData, onUploadComplete }) {
   const [fileName, setFileName] = useState('');
+  const [sheetNames, setSheetNames] = useState([]);
+  const [sheetName, setSheetName] = useState('');
+  const workbookRef = useRef(null);
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -25,15 +36,25 @@ export default function FileUploader({ title, fileData, onUploadComplete }) {
       const bstr = evt.target.result;
       // XLSX.read bisa membaca file .xlsx lokal secara otomatis
       const workbook = XLSX.read(bstr, { type: 'binary' });
+      workbookRef.current = workbook;
+      setSheetNames(workbook.SheetNames);
       const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
-
-      // Konversi baris spreadsheet menjadi JSON objek
-      const rawData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-      onUploadComplete(rawData);
+      setSheetName(firstSheetName);
+      emitData(workbook, firstSheetName);
     };
 
     reader.readAsBinaryString(file);
+  };
+
+  const emitData = (wb, sheet) => {
+    const ws = wb.Sheets[sheet];
+    const rawData = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    onUploadComplete(rawData);
+  };
+
+  const onSheetChange = (val) => {
+    setSheetName(val);
+    if (workbookRef.current) emitData(workbookRef.current, val);
   };
 
   return (
@@ -47,8 +68,8 @@ export default function FileUploader({ title, fileData, onUploadComplete }) {
           .xlsx
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex-1">
-        <label className="flex flex-col justify-center items-center p-4 h-full text-center rounded-xl border-2 border-dashed transition-colors cursor-pointer border-slate-200 hover:border-emerald-500 bg-slate-50">
+      <CardContent className="flex-1 space-y-2">
+        <label className="flex flex-col justify-center items-center p-4 text-center rounded-xl border-2 border-dashed transition-colors cursor-pointer border-slate-200 hover:border-emerald-500 bg-slate-50">
           <input
             type="file"
             accept=".xlsx"
@@ -60,6 +81,29 @@ export default function FileUploader({ title, fileData, onUploadComplete }) {
             {fileName ? fileName : 'Pilih File Excel'}
           </span>
         </label>
+        <div className="flex gap-2 items-center justify-between">
+          <label className="text-sm font-medium text-gray-700">
+            Pilih Sheet
+          </label>
+          <Select
+            value={sheetName}
+            onValueChange={onSheetChange}
+            disabled={sheetNames.length === 0}
+          >
+            <SelectTrigger className="min-w-30">
+              <SelectValue placeholder="Pilih sheet" />
+            </SelectTrigger>
+            <SelectContent align="end" className="min-w-30">
+              <SelectGroup>
+                {sheetNames.map((name) => (
+                  <SelectItem key={name} value={name}>
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </div>
       </CardContent>
       <CardFooter className="gap-3">
         <div

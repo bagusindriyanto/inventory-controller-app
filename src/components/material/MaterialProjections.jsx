@@ -67,8 +67,7 @@ export default function MaterialProjections({ data }) {
               Proyeksi Ketersediaan Komponen & Jadwal MRP
             </h3>
             <p className="text-xs text-slate-500">
-              Proyeksi akumulasi stok mingguan dengan simulasi Lead Time + 3
-              Bulan Buffer Pengiriman Gudang.
+              Proyeksi akumulasi stok mingguan dengan simulasi Lead Time.
             </p>
           </div>
           {/* Search Input */}
@@ -109,7 +108,7 @@ export default function MaterialProjections({ data }) {
               <th className="p-3 text-center">UOM</th>
               <th className="p-3 text-center">Est. Material Habis</th>
               <th className="p-3 font-bold text-center text-amber-900 bg-amber-50">
-                Batas Tanggal Beli (MRP)
+                Week to Buy
               </th>
               {weekKeys.map((wk) => (
                 <th key={wk} className="p-3 font-mono text-center">
@@ -130,8 +129,7 @@ export default function MaterialProjections({ data }) {
               </tr>
             ) : (
               sortedData.map((proj, idx) => {
-                const isUrgent =
-                  proj.orderTriggerWeek === 'IMMEDIATE / OVERDUE';
+                const isUrgent = proj.orderTriggerWeek === 'OVERDUE';
                 const isSafe = proj.shortageWeek.includes('Safe');
 
                 return (

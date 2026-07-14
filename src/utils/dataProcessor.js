@@ -118,9 +118,7 @@ export function calculateMaterialAvailability(
     const modelCode = String(mat['MODEL CODE'] || mat.modelCode || '').trim();
     const materialId = String(mat.ID || mat.id || '').trim();
     const consumption = parseFloat(mat.CONS || mat.cons || 0);
-    const leadTimeDays = parseFloat(
-      mat['Total LT (day)'] || mat.totalLtDays || 0,
-    );
+    const leadTimeDays = parseFloat(mat['Total LT'] || mat.totalLt || 0);
 
     if (!materialId || !modelCode) return;
 
@@ -133,7 +131,7 @@ export function calculateMaterialAvailability(
         supplier: mat.Supplier || mat.supplier || 'NON NOMINATE',
         leadTimeDays: leadTimeDays,
         // Allowance 3 bulan (90 hari) dikonversi ke minggu bersama dengan Lead Time produksi & transportasi
-        totalLtWeeks: Math.ceil((leadTimeDays + 90) / 7),
+        totalLtWeeks: Math.ceil(leadTimeDays / 7),
       };
     }
 
@@ -186,7 +184,7 @@ export function calculateMaterialAvailability(
         if (triggerIndex >= 0) {
           orderTriggerWeek = weekKeys[triggerIndex];
         } else {
-          orderTriggerWeek = 'IMMEDIATE / OVERDUE'; // Jika minus, berarti window pemesanan aman sudah terlewati
+          orderTriggerWeek = 'OVERDUE'; // Jika minus, berarti window pemesanan aman sudah terlewati
         }
       }
     });
@@ -232,7 +230,7 @@ function roundTo4Digit(num) {
 }
 
 function getPriority(value) {
-  if (value === 'IMMEDIATE / OVERDUE') return 0;
+  if (value === 'OVERDUE') return 0;
   if (value === 'No Action Needed') return 2;
   return 1; // untuk nilai lain jika ada
 }

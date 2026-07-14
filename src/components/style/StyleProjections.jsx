@@ -81,6 +81,12 @@ export default function StyleProjections({ optimumReport }) {
                 >
                   Style
                 </th>
+                <th
+                  scope="col"
+                  className="sticky left-66 z-10 bg-slate-100 p-3 hover:bg-slate-200 w-15"
+                >
+                  Week to Buy
+                </th>
                 {weeksHeader.map((week) => {
                   const remaining = remainingData[week];
                   const payload = { week, remaining };
@@ -89,7 +95,7 @@ export default function StyleProjections({ optimumReport }) {
                     <th
                       key={`th-${week}`}
                       scope="col"
-                      className="p-3 text-center font-mono min-w-15"
+                      className="p-3 text-center font-mono w-20"
                     >
                       <HoverCardTrigger
                         handle={remainingCard}
@@ -115,10 +121,12 @@ export default function StyleProjections({ optimumReport }) {
                   <td className="sticky left-0 z-10 p-3 font-mono font-medium bg-slate-50 shadow-md text-slate-600 w-16">
                     {row.modelCode}
                   </td>
-                  <td className="sticky left-16 z-10 p-3 font-medium uppercase bg-slate-50 text-slate-700">
+                  <td className="sticky left-16 z-10 p-3 font-medium uppercase bg-slate-50 text-slate-700 w-50">
                     {row.style}
                   </td>
-
+                  <td className="sticky left-66 z-10 p-3 font-medium uppercase bg-slate-50 text-slate-700 w-15">
+                    27
+                  </td>
                   {/* Looping Kolom Minggu Berjalan */}
                   {weeksHeader.map((week) => {
                     const cell = row[week];

@@ -81,6 +81,7 @@ export function calculateOptimumAllocation(
     const lpModel = {
       optimize: 'output',
       opType: 'max',
+      tolerance: 0.05,
       constraints: {},
       variables: {},
       ints: {}, // Mengunci agar hasil alokasi berupa bilangan bulat

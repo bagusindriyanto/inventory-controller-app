@@ -7,6 +7,7 @@ export const buildCsvUrl = (
 ) => {
   const params = new URLSearchParams({
     tqx: 'out:csv',
+    headers: 1,
     sheet: sheetName,
     ...(range && { range }),
     ...(query && { tq: query }),
