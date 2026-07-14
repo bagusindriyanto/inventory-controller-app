@@ -81,12 +81,12 @@ export default function StyleProjections({ optimumReport }) {
                 >
                   Style
                 </th>
-                <th
+                {/* <th
                   scope="col"
                   className="sticky left-66 z-10 bg-slate-100 p-3 hover:bg-slate-200 w-15"
                 >
                   Week to Buy
-                </th>
+                </th> */}
                 {weeksHeader.map((week) => {
                   const remaining = remainingData[week];
                   const payload = { week, remaining };
@@ -124,9 +124,9 @@ export default function StyleProjections({ optimumReport }) {
                   <td className="sticky left-16 z-10 p-3 font-medium uppercase bg-slate-50 text-slate-700 w-50">
                     {row.style}
                   </td>
-                  <td className="sticky left-66 z-10 p-3 font-medium uppercase bg-slate-50 text-slate-700 w-15">
+                  {/* <td className="sticky left-66 z-10 p-3 font-medium uppercase bg-slate-50 text-slate-700 w-15">
                     27
-                  </td>
+                  </td> */}
                   {/* Looping Kolom Minggu Berjalan */}
                   {weeksHeader.map((week) => {
                     const cell = row[week];
