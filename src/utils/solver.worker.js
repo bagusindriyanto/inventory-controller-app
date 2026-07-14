@@ -2,12 +2,12 @@
 import { calculateOptimumAllocation } from './solver';
 
 self.onmessage = function (e) {
-  const { forecastData, materialDb, stockData } = e.data;
+  const { forecastData, materialData, stockData } = e.data;
 
   try {
     const result = calculateOptimumAllocation(
       forecastData,
-      materialDb,
+      materialData,
       stockData,
     );
     self.postMessage({ success: true, data: result });

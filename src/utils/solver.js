@@ -2,13 +2,13 @@ import solver from 'javascript-lp-solver';
 
 export function calculateOptimumAllocation(
   forecastData,
-  materialDb,
+  materialData,
   stockData,
 ) {
   // A. Kelompokkan BOM per Style & kumpulkan metadata material
   const bomMap = {};
   const materialMetadataMap = {};
-  materialDb.forEach((mat) => {
+  materialData.forEach((mat) => {
     const modelCode = String(mat['MODEL CODE'] || mat.modelCode || '').trim();
     const materialId = String(mat.ID || mat.id || '').trim();
     const consumption = parseFloat(mat.CONS || mat.cons || 0);

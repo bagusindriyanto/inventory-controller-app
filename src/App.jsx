@@ -32,7 +32,7 @@ export default function App() {
   );
 
   // Master State untuk Data Sumber
-  const [materialDb, setMaterialDb] = useState(null); // File 4
+  const [materialData, setMaterialData] = useState(null); // File 4
   const [stockData, setStockData] = useState(null); // File 5
 
   // Trigger kalkulasi menggunakan useMemo untuk optimasi performa render
@@ -46,20 +46,20 @@ export default function App() {
   }, [sheets]);
 
   const componentAnalysis = useMemo(() => {
-    if (Object.keys(sheets).length === 0 || !materialDb || !stockData)
+    if (Object.keys(sheets).length === 0 || !materialData || !stockData)
       return null;
     return calculateMaterialAvailability(
       sheets['Forecast Decathlon_3'].data,
-      materialDb,
+      materialData,
       stockData,
     );
-  }, [sheets, materialDb, stockData]);
+  }, [sheets, materialData, stockData]);
 
   const {
     result: optimumReport,
     loading: solverLoading,
     error: solverError,
-  } = useSolver(sheets['Forecast Decathlon_3']?.data, materialDb, stockData);
+  } = useSolver(sheets['Forecast Decathlon_3']?.data, materialData, stockData);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -79,8 +79,8 @@ export default function App() {
           <div className="grid grid-cols-1 gap-6 lg:col-span-2 md:grid-cols-2">
             <FileUploader
               title="Database Material (BOM Update)"
-              fileData={materialDb}
-              onUploadComplete={(data) => setMaterialDb(data)}
+              fileData={materialData}
+              onUploadComplete={(data) => setMaterialData(data)}
             />
             <FileUploader
               title="Stock Material"

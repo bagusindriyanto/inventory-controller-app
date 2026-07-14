@@ -1,7 +1,7 @@
 // src/hooks/useSolver.js
 import { useState, useEffect, useRef } from 'react';
 
-export function useSolver(forecastData, materialDb, stockData) {
+export function useSolver(forecastData, materialData, stockData) {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -11,7 +11,7 @@ export function useSolver(forecastData, materialDb, stockData) {
     // Only run if we have all necessary input data
     if (
       !forecastData ||
-      !materialDb ||
+      !materialData ||
       !stockData ||
       forecastData.length === 0
     ) {
@@ -30,7 +30,7 @@ export function useSolver(forecastData, materialDb, stockData) {
     workerRef.current = worker;
 
     // Send data to worker
-    worker.postMessage({ forecastData, materialDb, stockData });
+    worker.postMessage({ forecastData, materialData, stockData });
 
     // Handle worker response
     worker.onmessage = (event) => {
@@ -56,7 +56,7 @@ export function useSolver(forecastData, materialDb, stockData) {
         workerRef.current.terminate();
       }
     };
-  }, [forecastData, materialDb, stockData]);
+  }, [forecastData, materialData, stockData]);
 
   return { result, loading, error };
 }

@@ -76,7 +76,7 @@ export function calculateSelectionRemaining(
  */
 export function calculateMaterialAvailability(
   forecastData,
-  materialDb,
+  materialData,
   stockData,
 ) {
   // 1. Ekstrak header minggu (Kolom N s.d AN biasanya dinamai W23, W24, atau berupa penomoran minggu)
@@ -114,7 +114,7 @@ export function calculateMaterialAvailability(
   const weeklyMaterialDemand = {}; // Struktur: { [materialID]: { [weekKey]: demandJumlah } }
   const materialMetadata = {}; // Menyimpan metadata supplier, leadtime, nama, dll.
 
-  materialDb.forEach((mat) => {
+  materialData.forEach((mat) => {
     const modelCode = String(mat['MODEL CODE'] || mat.modelCode || '').trim();
     const materialId = String(mat.ID || mat.id || '').trim();
     const consumption = parseFloat(mat.CONS || mat.cons || 0);
