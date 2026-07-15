@@ -81,6 +81,7 @@ export function calculateOptimumAllocation(
     const lpModel = {
       optimize: 'output',
       opType: 'max',
+      timeout: 120000,
       tolerance: 0.05,
       constraints: {},
       variables: {},
@@ -118,9 +119,7 @@ export function calculateOptimumAllocation(
     // 2. JALANKAN METODE SIMPLEX SOLVER
     const solution = solver.Solve(lpModel);
     // 3. PENGURANGAN STOK GUDANG, REKAM HASIL & SIMPAN DATA SISA MATERIAL MINGGU INI
-    simulationReport[currentWeek] = {
-      allocation: {},
-    };
+    simulationReport[currentWeek] = {};
     normalizedForecasts.forEach((fc) => {
       const forecastQty = fc.raw[currentWeek] || 0;
       if (forecastQty <= 0) return;
@@ -170,7 +169,7 @@ export function calculateOptimumAllocation(
           (a, b) => a.remaining - b.remaining || a.name.localeCompare(b.name),
         );
 
-      simulationReport[currentWeek].allocation[modelCode] = {
+      simulationReport[currentWeek][modelCode] = {
         forecast: forecastQty,
         actual: actualAllocated,
         shortage: forecastQty - actualAllocated,
@@ -180,9 +179,7 @@ export function calculateOptimumAllocation(
       };
     });
 
-    simulationReport[currentWeek].remaining = Object.entries(
-      currentStockTracker,
-    )
+    remainingStockByWeek[currentWeek] = Object.entries(currentStockTracker)
       .map(([id, qty]) => {
         const meta = materialMetadataMap[id] || {
           name: 'Unknown Material',
@@ -201,8 +198,6 @@ export function calculateOptimumAllocation(
         };
       })
       .sort((a, b) => a.qty - b.qty || a.name.localeCompare(b.name));
-
-    remainingStockByWeek[currentWeek] = simulationReport[currentWeek].remaining;
   });
 
   const rows = transformOptimumReport(simulationReport, forecastData);
@@ -224,7 +219,7 @@ export function transformOptimumReport(report, forecastData) {
     };
 
     weeks.forEach((week) => {
-      const weekData = report[week].allocation[modelCode];
+      const weekData = report[week][modelCode];
       if (weekData) {
         row[week] = {
           actual: weekData.actual,
