@@ -22,13 +22,13 @@ import {
 import { useGoogleSheets } from './hooks/useGoogleSheets';
 import { useSolver } from './hooks/useSolver';
 
-import { ENVIRONTMENT } from './config/environtment';
+import { ENVIRONMENT } from './config/environment';
 import Navbar from './components/Navbar';
 
 export default function App() {
   const { sheets, loading, error, refetch } = useGoogleSheets(
-    ENVIRONTMENT.SPREADSHEET_ID,
-    ENVIRONTMENT.SHEET_CONFIGS,
+    ENVIRONMENT.SPREADSHEET_ID,
+    ENVIRONMENT.SHEET_CONFIGS,
   );
 
   // Master State untuk Data Sumber

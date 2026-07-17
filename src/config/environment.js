@@ -1,4 +1,4 @@
-export const ENVIRONTMENT = {
+export const ENVIRONMENT = {
   SPREADSHEET_ID: '17fRpcH0Y_emWyXHxU7B9IHwyyUlDlCLFpubTE_rIa8A',
   SHEET_CONFIGS: [
     {

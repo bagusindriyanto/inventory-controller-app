@@ -12,6 +12,7 @@ export function calculateOptimumAllocation(
     const modelCode = String(mat['MODEL CODE'] || mat.modelCode || '').trim();
     const materialId = String(mat.ID || mat.id || '').trim();
     const consumption = parseFloat(mat.CONS || mat.cons || 0);
+    const leadTimeDays = parseFloat(mat['Total LT'] || mat.totalLt || 0);
 
     if (!materialId) return;
 
@@ -27,7 +28,7 @@ export function calculateOptimumAllocation(
     if (!modelCode) return;
 
     if (!bomMap[modelCode]) bomMap[modelCode] = [];
-    bomMap[modelCode].push({ id: materialId, cons: consumption });
+    bomMap[modelCode].push({ id: materialId, cons: consumption, leadTimeDays });
   });
 
   // B. Kumpulkan semua material ID yang dipakai di BOM & ada di forecast
