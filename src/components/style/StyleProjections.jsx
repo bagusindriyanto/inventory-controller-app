@@ -10,6 +10,7 @@ import {
 
 const remainingCard = PreviewCard.createHandle();
 const materialCard = PreviewCard.createHandle();
+const purchaseCard = PreviewCard.createHandle();
 
 export default function StyleProjections({ optimumReport }) {
   const [openRemaining, setOpenRemaining] = useState(false);
@@ -17,6 +18,9 @@ export default function StyleProjections({ optimumReport }) {
 
   const [open, setOpen] = useState(false);
   const [triggerId, setTriggerId] = useState(null);
+
+  const [openPurchase, setOpenPurchase] = useState(false);
+  const [triggerPurchaseId, setTriggerPurchaseId] = useState(null);
 
   const handleOpenChange = (isOpen, eventDetails) => {
     setOpen(isOpen);
@@ -28,6 +32,11 @@ export default function StyleProjections({ optimumReport }) {
     setTriggerRemainingId(eventDetails.trigger?.id ?? null);
   };
 
+  const handleOpenPurchaseChange = (isOpen, eventDetails) => {
+    setOpenPurchase(isOpen);
+    setTriggerPurchaseId(eventDetails.trigger?.id ?? null);
+  };
+
   // const weeksHeader = optimumReport.weeks;
   // const tableRows = optimumReport.rows;
 
@@ -35,7 +44,15 @@ export default function StyleProjections({ optimumReport }) {
     weeks: weeksHeader,
     rows: tableRows,
     remaining: remainingData,
+    stylePurchasePlan,
   } = optimumReport;
+
+  const purchasePlanMap = {};
+  if (stylePurchasePlan) {
+    stylePurchasePlan.forEach((plan) => {
+      purchasePlanMap[plan.modelCode] = plan;
+    });
+  }
 
   return (
     <>
@@ -81,12 +98,12 @@ export default function StyleProjections({ optimumReport }) {
                 >
                   Style
                 </th>
-                {/* <th
+                <th
                   scope="col"
-                  className="sticky left-66 z-10 bg-slate-100 p-3 hover:bg-slate-200 w-15"
+                  className="sticky left-[264px] z-10 bg-slate-100 p-3 hover:bg-slate-200 w-24 border-r border-slate-200 text-center"
                 >
                   Week to Buy
-                </th> */}
+                </th>
                 {weeksHeader.map((week) => {
                   const remaining = remainingData[week];
                   const payload = { week, remaining };
@@ -102,7 +119,7 @@ export default function StyleProjections({ optimumReport }) {
                         id={`week-${week}`}
                         payload={payload}
                       >
-                        {week}
+                        <span className="cursor-help">{week}</span>
                       </HoverCardTrigger>
                     </th>
                   );
@@ -124,9 +141,50 @@ export default function StyleProjections({ optimumReport }) {
                   <td className="sticky left-16 z-10 p-3 font-medium uppercase bg-slate-50 text-slate-700 w-50">
                     {row.style}
                   </td>
-                  {/* <td className="sticky left-66 z-10 p-3 font-medium uppercase bg-slate-50 text-slate-700 w-15">
-                    27
-                  </td> */}
+                  {(() => {
+                    const plan = purchasePlanMap[row.modelCode];
+                    const orderTrigger =
+                      plan?.orderTriggerWeek || 'No Action Needed';
+                    const isOverdue = orderTrigger === 'OVERDUE';
+                    const isSafe = orderTrigger === 'No Action Needed';
+                    const hasWeek = !isOverdue && !isSafe;
+
+                    const payload = {
+                      style: row.style,
+                      modelCode: row.modelCode,
+                      orderTriggerWeek: orderTrigger,
+                      shortageWeek: plan?.shortageWeek,
+                      maxLeadTimeDays: plan?.maxLeadTimeDays,
+                      maxLeadTimeWeeks: plan?.maxLeadTimeWeeks,
+                      criticalMaterials: plan?.criticalMaterials || [],
+                    };
+
+                    return (
+                      <td
+                        className={cn(
+                          'sticky left-[264px] z-10 p-3 text-center bg-slate-50 border-r border-slate-200 w-24 shadow-xs font-bold transition-colors',
+                          {
+                            'bg-red-50 text-red-600': isOverdue,
+                            'bg-emerald-50 text-emerald-600 font-medium':
+                              isSafe,
+                            'bg-amber-50 text-amber-700': hasWeek,
+                          },
+                        )}
+                      >
+                        {plan ? (
+                          <HoverCardTrigger
+                            handle={purchaseCard}
+                            id={`purchase-${row.modelCode}`}
+                            payload={payload}
+                          >
+                            <span className="cursor-help">{orderTrigger}</span>
+                          </HoverCardTrigger>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </td>
+                    );
+                  })()}
                   {/* Looping Kolom Minggu Berjalan */}
                   {weeksHeader.map((week) => {
                     const cell = row[week];
@@ -151,7 +209,7 @@ export default function StyleProjections({ optimumReport }) {
                               id={`${row.modelCode}-${row.style}-${week}`}
                               payload={payload}
                               render={
-                                <div className="font-semibold text-[10px] text-slate-600" />
+                                <div className="cursor-help font-semibold text-[10px] text-slate-600" />
                               }
                             >
                               {formatNumber(cell.actual)}
@@ -279,6 +337,85 @@ export default function StyleProjections({ optimumReport }) {
                   </div>
                 </div>
               ))}
+            </div>
+          </HoverCardContent>
+        )}
+      </HoverCard>
+      <HoverCard
+        handle={purchaseCard}
+        open={openPurchase}
+        onOpenChange={handleOpenPurchaseChange}
+        triggerId={triggerPurchaseId}
+      >
+        {({ payload }) => (
+          <HoverCardContent side="top" className="w-72">
+            <h3 className="font-bold">Rencana Pembelian Material</h3>
+            <div className="flex justify-between pb-1.5 mb-2 border-b border-slate-200">
+              <p className="text-xs text-muted-foreground truncate uppercase max-w-[180px]">
+                {payload?.style} ({payload?.modelCode})
+              </p>
+            </div>
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Shortage Week:</span>
+                <span
+                  className={cn(
+                    'font-semibold',
+                    payload?.shortageWeek.includes('Safe')
+                      ? 'text-green-600'
+                      : 'text-red-600',
+                  )}
+                >
+                  {payload?.shortageWeek}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Lead Time Maksimum:</span>
+                <span className="font-semibold">
+                  {payload?.maxLeadTimeDays} hari (~
+                  {payload?.maxLeadTimeWeeks} minggu)
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Rekomendasi Beli:</span>
+                <span
+                  className={cn('font-bold px-1.5 py-0.5 rounded text-[10px]', {
+                    'bg-red-100 text-red-800':
+                      payload?.orderTriggerWeek === 'OVERDUE',
+                    'bg-emerald-100 text-emerald-800':
+                      payload?.orderTriggerWeek === 'No Action Needed',
+                    'bg-amber-100 text-amber-800':
+                      payload?.orderTriggerWeek !== 'OVERDUE' &&
+                      payload?.orderTriggerWeek !== 'No Action Needed',
+                  })}
+                >
+                  {payload?.orderTriggerWeek}
+                </span>
+              </div>
+
+              {payload?.criticalMaterials &&
+                payload.criticalMaterials.length > 0 && (
+                  <div className="pt-2 border-t border-slate-200 mt-2">
+                    <span className="font-semibold text-[10px] text-slate-500 uppercase block mb-1">
+                      Material Kritis (Lead Time Tertinggi)
+                    </span>
+                    <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                      {payload.criticalMaterials.map((mat) => (
+                        <div
+                          key={mat.id}
+                          className="flex justify-between text-[10px] py-0.5"
+                        >
+                          <span className="truncate max-w-[180px] font-medium text-slate-700">
+                            {mat.name}
+                          </span>
+                          <span className="text-slate-500 font-mono text-[9px]">
+                            ({mat.leadTimeDays} hari)
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
             </div>
           </HoverCardContent>
         )}

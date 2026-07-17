@@ -201,12 +201,88 @@ export function calculateOptimumAllocation(
       .sort((a, b) => a.qty - b.qty || a.name.localeCompare(b.name));
   });
 
+  // --- KALKULASI SHORTAGE WEEK & PURCHASE PLAN PER STYLE ---
+  const stylePurchasePlan = [];
+
+  normalizedForecasts.forEach((fc) => {
+    const modelCode = fc.modelCode;
+    const components = bomMap[modelCode] || [];
+
+    // 1. Single-pass: hitung maxLeadTime & kumpulkan critical materials
+    let maxLtDays = 0;
+    components.forEach((comp) => {
+      if (comp.leadTimeDays > maxLtDays) {
+        maxLtDays = comp.leadTimeDays;
+      }
+    });
+
+    const criticalMaterials = [];
+    if (maxLtDays > 0) {
+      components.forEach((comp) => {
+        if (comp.leadTimeDays === maxLtDays) {
+          const meta = materialMetadataMap[comp.id] || {};
+          criticalMaterials.push({
+            id: comp.id,
+            name: meta.name || 'Unknown',
+            leadTimeDays: comp.leadTimeDays,
+          });
+        }
+      });
+    }
+    const maxLtWeeks = Math.ceil(maxLtDays / 7);
+
+    // 2. Scan shortage week — minggu pertama status bukan SAFE
+    let shortageWeek = null;
+    let orderTriggerWeek = null;
+
+    for (let i = 0; i < weekKeys.length; i++) {
+      const week = weekKeys[i];
+      const weekReport = simulationReport[week]?.[modelCode];
+      if (!weekReport) continue;
+
+      if (weekReport.status !== 'SAFE') {
+        shortageWeek = week;
+
+        // 3. Hitung mundur order trigger berdasarkan max lead time
+        const triggerIndex = i - maxLtWeeks;
+        if (triggerIndex >= 0) {
+          orderTriggerWeek = weekKeys[triggerIndex];
+        } else {
+          orderTriggerWeek = 'OVERDUE';
+        }
+        break;
+      }
+    }
+
+    stylePurchasePlan.push({
+      modelCode,
+      style: fc.style,
+      maxLeadTimeDays: maxLtDays,
+      maxLeadTimeWeeks: maxLtWeeks,
+      shortageWeek: shortageWeek || 'Safe (Stock Sufficient)',
+      orderTriggerWeek: shortageWeek ? orderTriggerWeek : 'No Action Needed',
+      criticalMaterials,
+    });
+  });
+
+  // Sort: OVERDUE pertama, lalu by week ASC, lalu Safe terakhir
+  stylePurchasePlan.sort((a, b) => {
+    const priorityA = getPurchasePlanPriority(a.orderTriggerWeek);
+    const priorityB = getPurchasePlanPriority(b.orderTriggerWeek);
+    if (priorityA !== priorityB) return priorityA - priorityB;
+    if (priorityA === 1) {
+      return parseInt(a.orderTriggerWeek) - parseInt(b.orderTriggerWeek);
+    }
+    return 0;
+  });
+
   const rows = transformOptimumReport(simulationReport, forecastData);
 
   return {
     weeks: weekKeys.sort((a, b) => parseInt(a) - parseInt(b)),
     rows,
     remaining: remainingStockByWeek,
+    stylePurchasePlan,
   };
 }
 
@@ -240,4 +316,10 @@ export function transformOptimumReport(report, forecastData) {
 
     return row;
   });
+}
+
+function getPurchasePlanPriority(value) {
+  if (value === 'OVERDUE') return 0;
+  if (value === 'No Action Needed') return 2;
+  return 1;
 }
