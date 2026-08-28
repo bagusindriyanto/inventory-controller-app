@@ -26,7 +26,7 @@ LABEL A 'Season', C 'Style', D 'Model Code', SUM(H) 'Totals'
       range: 'A4:AN',
       query: `
       SELECT C, D, SUM(H), SUM(V), SUM(W), SUM(X), SUM(Y), SUM(Z), SUM(AA), SUM(AB), SUM(AC), SUM(AD), SUM(AE), SUM(AF), SUM(AG), SUM(AH), SUM(AI), SUM(AJ), SUM(AK), SUM(AL)
-WHERE A IS NOT NULL AND C IS NOT NULL AND D IS NOT NULL
+WHERE A IS NOT NULL AND C IS NOT NULL AND D IS NOT NULL AND C <> '#N/A'
 GROUP BY C, D
 LABEL C 'Style', D 'Model Code', SUM(H) 'Totals', SUM(V) '35', SUM(W) '36', SUM(X) '37', SUM(Y) '38', SUM(Z) '39', SUM(AA) '40', SUM(AB) '41', SUM(AC) '42', SUM(AD) '43', SUM(AE) '44', SUM(AF) '45', SUM(AG) '46', SUM(AH) '47', SUM(AI) '48', SUM(AJ) '49', SUM(AK) '50', SUM(AL) '51'
       `,
