@@ -19,17 +19,36 @@ import {
   calculateMaterialAvailability,
 } from './utils/dataProcessor';
 
-import { useGoogleSheets } from './hooks/useGoogleSheets';
+import { useSheet } from './hooks/useSheet';
 import { useSolver } from './hooks/useSolver';
 
 import { ENVIRONMENT } from './config/environment';
 import Navbar from './components/Navbar';
 
 export default function App() {
-  const { sheets, loading, error, refetch } = useGoogleSheets(
-    ENVIRONMENT.SPREADSHEET_ID,
-    ENVIRONMENT.SHEET_CONFIGS,
-  );
+  const id = ENVIRONMENT.SPREADSHEET_ID;
+
+  const selectionQuery = useSheet({
+    spreadsheetId: id,
+    sheetName: 'New Selection Data',
+    range: 'A2:F',
+  });
+  const rawDataQuery = useSheet({
+    spreadsheetId: id,
+    sheetName: 'RAW DATA',
+    range: 'A1:N',
+  });
+  const forecastQuery = useSheet({
+    spreadsheetId: id,
+    sheetName: 'Forecast Decathlon',
+    range: 'A4:AN',
+  });
+
+  const sheets = {
+    selection: selectionQuery.data,
+    rawData: rawDataQuery.data,
+    forecast: forecastQuery.data,
+  };
 
   // Master State untuk Data Sumber
   const [materialData, setMaterialData] = useState(null); // File 4
@@ -37,29 +56,33 @@ export default function App() {
 
   // Trigger kalkulasi menggunakan useMemo untuk optimasi performa render
   const selectionAnalysis = useMemo(() => {
-    if (Object.keys(sheets).length === 0) return [];
+    if (
+      !sheets.selection ||
+      !sheets.rawData ||
+      !sheets.forecast
+    )
+      return [];
     return calculateSelectionRemaining(
-      sheets['New Selection Data_0'].data,
-      sheets['RAW DATA_1'].data,
-      sheets['Forecast Decathlon_2'].data,
+      sheets.selection,
+      sheets.rawData,
+      sheets.forecast,
     );
-  }, [sheets]);
+  }, [sheets.selection, sheets.rawData, sheets.forecast]);
 
   const componentAnalysis = useMemo(() => {
-    if (Object.keys(sheets).length === 0 || !materialData || !stockData)
-      return null;
+    if (!sheets.forecast || !materialData || !stockData) return null;
     return calculateMaterialAvailability(
-      sheets['Forecast Decathlon_3'].data,
+      sheets.forecast,
       materialData,
       stockData,
     );
-  }, [sheets, materialData, stockData]);
+  }, [sheets.forecast, materialData, stockData]);
 
   const {
     result: optimumReport,
     loading: solverLoading,
     error: solverError,
-  } = useSolver(sheets['Forecast Decathlon_3']?.data, materialData, stockData);
+  } = useSolver(sheets.forecast, materialData, stockData);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -72,9 +95,20 @@ export default function App() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <SheetConnector
             sheetData={sheets}
-            loading={loading}
-            error={error}
-            refetch={refetch}
+            loading={selectionQuery.isLoading || rawDataQuery.isLoading || forecastQuery.isLoading}
+            error={
+              selectionQuery.error ||
+              rawDataQuery.error ||
+              forecastQuery.error ||
+              null
+            }
+            refetch={async () => {
+              await Promise.all([
+                selectionQuery.refetch(),
+                rawDataQuery.refetch(),
+                forecastQuery.refetch(),
+              ]);
+            }}
           />
           <div className="grid grid-cols-1 gap-6 lg:col-span-2 md:grid-cols-2">
             <FileUploader
