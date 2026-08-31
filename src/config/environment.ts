@@ -1,4 +1,15 @@
-export const ENVIRONMENT = {
+type SheetConfig = {
+  name: string;
+  range: string;
+  query: string;
+};
+
+type Environment = {
+  SPREADSHEET_ID: string;
+  SHEET_CONFIGS: SheetConfig[];
+};
+
+export const ENVIRONMENT: Environment = {
   SPREADSHEET_ID: '17fRpcH0Y_emWyXHxU7B9IHwyyUlDlCLFpubTE_rIa8A',
   SHEET_CONFIGS: [
     {
