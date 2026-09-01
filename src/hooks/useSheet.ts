@@ -13,10 +13,14 @@ export const sheetKeys = {
     ['sheets', spreadsheetId, sheetName, range] as const,
 };
 
-export function useSheet({ spreadsheetId, sheetName, range }: UseSheetOptions) {
-  return useQuery<SheetRow[]>({
+export function useSheet<T extends Record<string, unknown> = SheetRow>({
+  spreadsheetId,
+  sheetName,
+  range,
+}: UseSheetOptions) {
+  return useQuery<T[]>({
     queryKey: sheetKeys.range(spreadsheetId, sheetName, range),
-    queryFn: () => fetchSheet(spreadsheetId, sheetName, range),
+    queryFn: () => fetchSheet<T>(spreadsheetId, sheetName, range),
     staleTime: 5 * 60 * 1000,
     retry: 2,
     refetchOnWindowFocus: false,

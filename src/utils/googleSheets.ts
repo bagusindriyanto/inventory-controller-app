@@ -67,11 +67,11 @@ export const parseValuesToRows = (values: unknown[][]): SheetRow[] => {
   });
 };
 
-export const fetchSheet = async (
+export const fetchSheet = async <T extends Record<string, unknown> = SheetRow>(
   spreadsheetId: string,
   sheetName: string,
   range: string,
-): Promise<SheetRow[]> => {
+): Promise<T[]> => {
   const url = buildValuesUrl(spreadsheetId, sheetName, range);
   const res = await fetch(url);
 
@@ -88,5 +88,5 @@ export const fetchSheet = async (
   }
 
   const body = (await res.json()) as { values?: unknown[][] };
-  return parseValuesToRows(body.values ?? []);
+  return parseValuesToRows(body.values ?? []) as T[];
 };
