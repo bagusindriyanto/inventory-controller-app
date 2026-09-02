@@ -1,16 +1,30 @@
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RawRow = Record<string, any>;
+
+export type SelectionRemainingResult = {
+  season: string;
+  modelCode: string;
+  style: string;
+  selectionQty: number;
+  orderQty: number;
+  forecastQty: number;
+  remainingSelection: number;
+  status: 'Over-consumed' | 'Balanced' | 'Surplus';
+};
+
 /**
  * Memproses Sisa Selection
  * Formula: Selection - Order - Total Forecast
  */
 export function calculateSelectionRemaining(
-  selectionData,
-  orderData,
-  forecastData,
-) {
-  const results = [];
+  selectionData: RawRow[],
+  orderData: RawRow[],
+  forecastData: RawRow[],
+): SelectionRemainingResult[] {
+  const results: SelectionRemainingResult[] = [];
 
   // Pre-aggregate Orders
-  const orderLookup = {};
+  const orderLookup: Record<string, number> = {};
   orderData.forEach((ord) => {
     const season = String(ord.Season || ord.season || '').trim();
     const modelCode = String(ord['Model Code'] || ord.modelCode || '').trim();
@@ -23,7 +37,7 @@ export function calculateSelectionRemaining(
   });
 
   // Pre-aggregate Forecasts
-  const forecastLookup = {};
+  const forecastLookup: Record<string, number> = {};
   forecastData.forEach((fc) => {
     const season = String(fc.Season || fc.season || '').trim();
     const modelCode = String(fc['Model Code'] || fc.modelCode || '').trim();
@@ -71,14 +85,39 @@ export function calculateSelectionRemaining(
   return results;
 }
 
+export type WeeklyPoint = {
+  week: string;
+  demand: number;
+  closingStock: number;
+};
+
+export type MaterialProjectionResult = {
+  materialId: string;
+  name: string;
+  color: string;
+  unit: string;
+  supplier: string;
+  initialStock: number;
+  currentBalance: number;
+  totalLtWeeks: number;
+  shortageWeek: string;
+  orderTriggerWeek: string;
+  timeline: WeeklyPoint[];
+};
+
+export type MaterialAvailabilityResult = {
+  weekKeys: string[];
+  projections: MaterialProjectionResult[];
+};
+
 /**
  * Memproses Ketersediaan Komponen Kumulatif Mingguan & Rekomendasi Waktu Pembelian (MRP)
  */
 export function calculateMaterialAvailability(
-  forecastData,
-  materialData,
-  stockData,
-) {
+  forecastData: RawRow[],
+  materialData: RawRow[],
+  stockData: RawRow[],
+): MaterialAvailabilityResult {
   // 1. Ekstrak header minggu (Kolom N s.d AN biasanya dinamai W23, W24, atau berupa penomoran minggu)
   // Sebagai fallback aman, kita mendeteksi semua properti yang memiliki prefiks huruf W atau berupa angka minggu/string minggu
   const sampleForecast = forecastData[0] || {};
@@ -90,7 +129,7 @@ export function calculateMaterialAvailability(
   );
 
   // 2. Petakan Stok Awal Material berdasarkan ID
-  const stockMap = {};
+  const stockMap: Record<string, number> = {};
   stockData.forEach((stk) => {
     const id = String(stk.ID || stk.id || '').trim();
     if (id) {
@@ -99,7 +138,7 @@ export function calculateMaterialAvailability(
   });
 
   // 3. Hitung total kebutuhan material (ID) per minggu (Aggregate Demand)
-  const forecastsByModel = {};
+  const forecastsByModel: Record<string, RawRow[]> = {};
   forecastData.forEach((fc) => {
     const modelCode = String(fc['Model Code'] || fc.modelCode || '').trim();
 
@@ -111,8 +150,18 @@ export function calculateMaterialAvailability(
     forecastsByModel[modelCode].push(fc);
   });
 
-  const weeklyMaterialDemand = {}; // Struktur: { [materialID]: { [weekKey]: demandJumlah } }
-  const materialMetadata = {}; // Menyimpan metadata supplier, leadtime, nama, dll.
+  const weeklyMaterialDemand: Record<string, Record<string, number>> = {}; // Struktur: { [materialID]: { [weekKey]: demandJumlah } }
+  const materialMetadata: Record<
+    string,
+    {
+      name: string;
+      color: string;
+      unit: string;
+      supplier: string;
+      leadTimeDays: number;
+      totalLtWeeks: number;
+    }
+  > = {}; // Menyimpan metadata supplier, leadtime, nama, dll.
 
   materialData.forEach((mat) => {
     const modelCode = String(mat['MODEL CODE'] || mat.modelCode || '').trim();
@@ -154,16 +203,16 @@ export function calculateMaterialAvailability(
   });
 
   // 4. Kalkulasi Proyeksi Kumulatif Mingguan & Cari Kapan Harus Beli
-  const finalProjections = [];
+  const finalProjections: MaterialProjectionResult[] = [];
 
   Object.keys(materialMetadata).forEach((matId) => {
     const meta = materialMetadata[matId];
     const initialStock = stockMap[matId] || 0;
     let runningStock = initialStock;
 
-    const weeklyTimeline = [];
-    let shortageWeek = null;
-    let orderTriggerWeek = null;
+    const weeklyTimeline: WeeklyPoint[] = [];
+    let shortageWeek: string | null = null;
+    let orderTriggerWeek: string | null = null;
 
     weekKeys.forEach((week, index) => {
       const demand = weeklyMaterialDemand[matId]?.[week] || 0;
@@ -199,7 +248,7 @@ export function calculateMaterialAvailability(
       currentBalance: runningStock,
       totalLtWeeks: meta.totalLtWeeks,
       shortageWeek: shortageWeek || 'Safe (Stock Sufficient)',
-      orderTriggerWeek: shortageWeek ? orderTriggerWeek : 'No Action Needed',
+      orderTriggerWeek: shortageWeek ? orderTriggerWeek || '' : 'No Action Needed',
       timeline: weeklyTimeline,
     });
   });
@@ -225,11 +274,11 @@ export function calculateMaterialAvailability(
 }
 
 // Helper function
-function roundTo4Digit(num) {
+function roundTo4Digit(num: number) {
   return Math.round(num * 10000) / 10000;
 }
 
-function getPriority(value) {
+function getPriority(value: string) {
   if (value === 'OVERDUE') return 0;
   if (value === 'No Action Needed') return 2;
   return 1; // untuk nilai lain jika ada

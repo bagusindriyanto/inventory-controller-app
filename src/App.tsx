@@ -3,24 +3,36 @@ import Navbar from './components/Navbar';
 import EmptySelection from './components/selection/EmptySelection';
 import EmptyProjections from './components/material/EmptyProjections';
 import EmptyStyles from './components/style/EmptyStyles';
-import { useBusinessData, useWarehouseData } from './hooks/useMasterData';
+import { useBusinessSummaries } from './hooks/useBusinessSummaries';
+import { useWarehouseData } from './hooks/useMasterData';
 
 export default function App() {
   const {
-    selection: { data: selectionData },
-    order: { data: orderData },
-    forecast: { data: forecastData },
-  } = useBusinessData();
-  const {
-    material: { data: materialData },
-    stock: { data: stockData },
-  } = useWarehouseData();
+    selection,
+    order,
+    forecast,
+    selectionSummary,
+    orderSummary,
+    forecastSummary,
+    forecastSeasonalSummary,
+  } = useBusinessSummaries();
+  const { material, stock } = useWarehouseData();
+
+  const selectionData = selection.data;
+  const orderData = order.data;
+  const forecastData = forecast.data;
+  const materialData = material.data;
+  const stockData = stock.data;
 
   console.log('selection data', selectionData);
   console.log('order data', orderData);
   console.log('forecast data', forecastData);
   console.log('material data', materialData);
   console.log('stock data', stockData);
+  console.log('selection summary', selectionSummary);
+  console.log('order summary', orderSummary);
+  console.log('forecast summary (weekly)', forecastSummary);
+  console.log('forecast summary (seasonal)', forecastSeasonalSummary);
 
   return (
     <div className="flex flex-col min-h-screen">

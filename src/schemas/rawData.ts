@@ -1,10 +1,6 @@
 import { z } from 'zod';
 
-const num = () =>
-  z.coerce
-    .number()
-    .nullish()
-    .transform((value) => value ?? 0);
+const num = () => z.coerce.number().nullable();
 
 export const SelectionSchema = z.object({
   'MTS?': z.string().nullable(),
