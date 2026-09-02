@@ -3,39 +3,18 @@ import Navbar from './components/Navbar';
 import EmptySelection from './components/selection/EmptySelection';
 import EmptyProjections from './components/material/EmptyProjections';
 import EmptyStyles from './components/style/EmptyStyles';
-import { useSheet } from './hooks/useSheet';
-import type { Material, Order, Selection, Stock } from './types/rawData';
+import { useBusinessData, useWarehouseData } from './hooks/useMasterData';
 
 export default function App() {
-  const { data: selectionData } = useSheet<Selection>({
-    spreadsheetId: '17fRpcH0Y_emWyXHxU7B9IHwyyUlDlCLFpubTE_rIa8A',
-    sheetName: 'New Selection Data',
-    range: 'A2:G',
-  });
-
-  const { data: orderData } = useSheet<Order>({
-    spreadsheetId: '17fRpcH0Y_emWyXHxU7B9IHwyyUlDlCLFpubTE_rIa8A',
-    sheetName: 'RAW DATA',
-    range: 'G1:N',
-  });
-
-  const { data: forecastData } = useSheet({
-    spreadsheetId: '17fRpcH0Y_emWyXHxU7B9IHwyyUlDlCLFpubTE_rIa8A',
-    sheetName: 'Forecast Decathlon',
-    range: 'A3:AN',
-  });
-
-  const { data: materialData } = useSheet<Material>({
-    spreadsheetId: '1TINI8aq5NGmvvNAdRr1LbaE4ZmXzzdsjFCB4vlm-EkQ',
-    sheetName: 'Database Material',
-    range: 'A2:K',
-  });
-
-  const { data: stockData } = useSheet<Stock>({
-    spreadsheetId: '1TINI8aq5NGmvvNAdRr1LbaE4ZmXzzdsjFCB4vlm-EkQ',
-    sheetName: 'Stok Material (Synthetic)',
-    range: 'B4:H',
-  });
+  const {
+    selection: { data: selectionData },
+    order: { data: orderData },
+    forecast: { data: forecastData },
+  } = useBusinessData();
+  const {
+    material: { data: materialData },
+    stock: { data: stockData },
+  } = useWarehouseData();
 
   console.log('selection data', selectionData);
   console.log('order data', orderData);
