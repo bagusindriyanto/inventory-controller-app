@@ -1,3 +1,9 @@
+import type {
+  ForecastSeasonalSummary,
+  OrderSummary,
+  SelectionSummary,
+} from '@/utils/aggregations';
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RawRow = Record<string, any>;
 
@@ -17,51 +23,35 @@ export type SelectionRemainingResult = {
  * Formula: Selection - Order - Total Forecast
  */
 export function calculateSelectionRemaining(
-  selectionData: RawRow[],
-  orderData: RawRow[],
-  forecastData: RawRow[],
+  selection: SelectionSummary[],
+  order: OrderSummary[],
+  forecast: ForecastSeasonalSummary[],
 ): SelectionRemainingResult[] {
   const results: SelectionRemainingResult[] = [];
 
-  // Pre-aggregate Orders
-  const orderLookup: Record<string, number> = {};
-  orderData.forEach((ord) => {
-    const season = String(ord.Season || ord.season || '').trim();
-    const modelCode = String(ord['Model Code'] || ord.modelCode || '').trim();
+  const orderLookup = new Map<string, number>(
+    order.map((row) => [
+      JSON.stringify([row.Season, String(row['Model Code'])]),
+      row['Qty ORDER'],
+    ]),
+  );
 
-    if (!modelCode) return;
+  const forecastLookup = new Map<string, number>(
+    forecast.map((row) => [
+      JSON.stringify([row.Season, String(row['Model Code'])]),
+      row.Totals,
+    ]),
+  );
 
-    const key = `${season}_${modelCode}`;
-    const qty = parseFloat(ord['Qty ORDER'] || ord.qtyOrder || 0);
-    orderLookup[key] = (orderLookup[key] || 0) + qty;
-  });
+  selection.forEach((sel) => {
+    const season = sel.Season;
+    const modelCode = String(sel['Model Code']);
+    const style = sel.Style;
+    const sumSelection = sel['SUM of Selection'];
 
-  // Pre-aggregate Forecasts
-  const forecastLookup: Record<string, number> = {};
-  forecastData.forEach((fc) => {
-    const season = String(fc.Season || fc.season || '').trim();
-    const modelCode = String(fc['Model Code'] || fc.modelCode || '').trim();
-
-    if (!modelCode) return;
-
-    const key = `${season}_${modelCode}`;
-    const qty = parseFloat(fc.Totals || fc.totals || 0);
-    forecastLookup[key] = (forecastLookup[key] || 0) + qty;
-  });
-
-  selectionData.forEach((sel) => {
-    const season = String(sel.Season || sel.season || '').trim();
-    const modelCode = String(sel['Model Code'] || sel.modelCode || '').trim();
-    const style = String(sel.Style || sel.style || '').trim();
-    const sumSelection = parseFloat(
-      sel['SUM of Selection'] || sel.sumSelection || 0,
-    );
-
-    if (!modelCode) return;
-
-    const key = `${season}_${modelCode}`;
-    const totalOrderQty = orderLookup[key] || 0;
-    const totalForecastQty = forecastLookup[key] || 0;
+    const key = JSON.stringify([season, modelCode]);
+    const totalOrderQty = orderLookup.get(key) ?? 0;
+    const totalForecastQty = forecastLookup.get(key) ?? 0;
 
     const remaining = sumSelection - totalOrderQty - totalForecastQty;
 
@@ -248,7 +238,9 @@ export function calculateMaterialAvailability(
       currentBalance: runningStock,
       totalLtWeeks: meta.totalLtWeeks,
       shortageWeek: shortageWeek || 'Safe (Stock Sufficient)',
-      orderTriggerWeek: shortageWeek ? orderTriggerWeek || '' : 'No Action Needed',
+      orderTriggerWeek: shortageWeek
+        ? orderTriggerWeek || ''
+        : 'No Action Needed',
       timeline: weeklyTimeline,
     });
   });

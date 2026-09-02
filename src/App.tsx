@@ -1,16 +1,16 @@
+import { useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import Navbar from './components/Navbar';
+import SelectionTable from './components/selection/SelectionTable';
 import EmptySelection from './components/selection/EmptySelection';
 import EmptyProjections from './components/material/EmptyProjections';
 import EmptyStyles from './components/style/EmptyStyles';
 import { useBusinessSummaries } from './hooks/useBusinessSummaries';
 import { useWarehouseData } from './hooks/useMasterData';
+import { calculateSelectionRemaining } from './utils/dataProcessor';
 
 export default function App() {
   const {
-    selection,
-    order,
-    forecast,
     selectionSummary,
     orderSummary,
     forecastSummary,
@@ -18,21 +18,19 @@ export default function App() {
   } = useBusinessSummaries();
   const { material, stock } = useWarehouseData();
 
-  const selectionData = selection.data;
-  const orderData = order.data;
-  const forecastData = forecast.data;
-  const materialData = material.data;
-  const stockData = stock.data;
-
-  console.log('selection data', selectionData);
-  console.log('order data', orderData);
-  console.log('forecast data', forecastData);
-  console.log('material data', materialData);
-  console.log('stock data', stockData);
-  console.log('selection summary', selectionSummary);
-  console.log('order summary', orderSummary);
-  console.log('forecast summary (weekly)', forecastSummary);
-  console.log('forecast summary (seasonal)', forecastSeasonalSummary);
+  const selectionAnalysis = useMemo(
+    () =>
+      selectionSummary.length &&
+      orderSummary.length &&
+      forecastSeasonalSummary.length
+        ? calculateSelectionRemaining(
+            selectionSummary,
+            orderSummary,
+            forecastSeasonalSummary,
+          )
+        : [],
+    [selectionSummary, orderSummary, forecastSeasonalSummary],
+  );
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -49,7 +47,11 @@ export default function App() {
             <TabsTrigger value="style">Proyeksi Style</TabsTrigger>
           </TabsList>
           <TabsContent value="selection">
-            <EmptySelection />
+            {selectionAnalysis.length > 0 ? (
+              <SelectionTable data={selectionAnalysis} />
+            ) : (
+              <EmptySelection />
+            )}
           </TabsContent>
           <TabsContent value="material">
             <EmptyProjections />
