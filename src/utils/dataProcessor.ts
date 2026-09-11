@@ -1,11 +1,27 @@
 import type {
   ForecastSeasonalSummary,
+  ForecastSummary,
   OrderSummary,
   SelectionSummary,
 } from '@/utils/aggregations';
+import type { Material, Stock } from '@/schemas/rawData';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type RawRow = Record<string, any>;
+/** Single sheet cell after cleaning (`null` = empty / `#N/A`-style error). */
+type SheetCell = string | number | null | undefined;
+
+const toTrimmedString = (value: SheetCell): string => {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+};
+
+const toNumber = (value: SheetCell): number => {
+  if (value === null || value === undefined || value === '') return 0;
+  const parsed = typeof value === 'number' ? value : parseFloat(String(value));
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const readCell = (row: object, key: string): SheetCell =>
+  (row as Record<string, SheetCell>)[key];
 
 export type SelectionRemainingResult = {
   season: string;
@@ -86,7 +102,7 @@ export type MaterialProjectionResult = {
   name: string;
   color: string;
   unit: string;
-  supplier: string;
+  buyer: string;
   initialStock: number;
   currentBalance: number;
   totalLtWeeks: number;
@@ -104,9 +120,9 @@ export type MaterialAvailabilityResult = {
  * Memproses Ketersediaan Komponen Kumulatif Mingguan & Rekomendasi Waktu Pembelian (MRP)
  */
 export function calculateMaterialAvailability(
-  forecastData: RawRow[],
-  materialData: RawRow[],
-  stockData: RawRow[],
+  forecastData: ForecastSummary[],
+  materialData: Material[],
+  stockData: Stock[],
 ): MaterialAvailabilityResult {
   // 1. Ekstrak header minggu (Kolom N s.d AN biasanya dinamai W23, W24, atau berupa penomoran minggu)
   // Sebagai fallback aman, kita mendeteksi semua properti yang memiliki prefiks huruf W atau berupa angka minggu/string minggu
@@ -121,16 +137,16 @@ export function calculateMaterialAvailability(
   // 2. Petakan Stok Awal Material berdasarkan ID
   const stockMap: Record<string, number> = {};
   stockData.forEach((stk) => {
-    const id = String(stk.ID || stk.id || '').trim();
+    const id = toTrimmedString(stk.ID);
     if (id) {
-      stockMap[id] = parseFloat(stk.Total || stk.total || 0);
+      stockMap[id] = toNumber(stk.Total);
     }
   });
 
   // 3. Hitung total kebutuhan material (ID) per minggu (Aggregate Demand)
-  const forecastsByModel: Record<string, RawRow[]> = {};
+  const forecastsByModel: Record<string, ForecastSummary[]> = {};
   forecastData.forEach((fc) => {
-    const modelCode = String(fc['Model Code'] || fc.modelCode || '').trim();
+    const modelCode = toTrimmedString(fc['Model Code']);
 
     if (!modelCode) return;
 
@@ -147,27 +163,27 @@ export function calculateMaterialAvailability(
       name: string;
       color: string;
       unit: string;
-      supplier: string;
+      buyer: string;
       leadTimeDays: number;
       totalLtWeeks: number;
     }
-  > = {}; // Menyimpan metadata supplier, leadtime, nama, dll.
+  > = {}; // Menyimpan metadata buyer, leadtime, nama, dll.
 
   materialData.forEach((mat) => {
-    const modelCode = String(mat['MODEL CODE'] || mat.modelCode || '').trim();
-    const materialId = String(mat.ID || mat.id || '').trim();
-    const consumption = parseFloat(mat.CONS || mat.cons || 0);
-    const leadTimeDays = parseFloat(mat['Total LT'] || mat.totalLt || 0);
+    const modelCode = toTrimmedString(mat['R3/SKU']);
+    const materialId = toTrimmedString(mat.ID);
+    const consumption = toNumber(mat.CONS);
+    const leadTimeDays = toNumber(mat['LT material']);
 
     if (!materialId || !modelCode) return;
 
     // Simpan metadata komponen untuk referensi join tabel
     if (!materialMetadata[materialId]) {
       materialMetadata[materialId] = {
-        name: mat.NAMA || mat.name || 'Unknown Material',
-        color: mat.COLOR || mat.color || '-',
-        unit: mat.UOM || mat.uom || 'N/A',
-        supplier: mat.Supplier || mat.supplier || 'NON NOMINATE',
+        name: toTrimmedString(mat.NAMA || 'Unknown Material'),
+        color: toTrimmedString(mat.COLOR || '-'),
+        unit: toTrimmedString(mat.UOM || 'N/sA'),
+        buyer: toTrimmedString(mat.Buyer || 'NON NOMINATE'),
         leadTimeDays: leadTimeDays,
         // Allowance 3 bulan (90 hari) dikonversi ke minggu bersama dengan Lead Time produksi & transportasi
         totalLtWeeks: Math.ceil(leadTimeDays / 7),
@@ -179,7 +195,7 @@ export function calculateMaterialAvailability(
 
     matchingForecasts.forEach((fc) => {
       weekKeys.forEach((week) => {
-        const forecastQty = parseFloat(fc[week] || 0);
+        const forecastQty = toNumber(readCell(fc, week));
         const materialNeeded = forecastQty * consumption;
 
         if (!weeklyMaterialDemand[materialId])
@@ -233,7 +249,7 @@ export function calculateMaterialAvailability(
       name: meta.name,
       color: meta.color,
       unit: meta.unit,
-      supplier: meta.supplier,
+      buyer: meta.buyer,
       initialStock,
       currentBalance: runningStock,
       totalLtWeeks: meta.totalLtWeeks,

@@ -10,20 +10,24 @@ export const FORECAST_WEEK_KEYS = Array.from(
 const valueOf = (v: number | null | undefined): number =>
   typeof v === 'number' && Number.isFinite(v) ? v : 0;
 
-function groupRows<T, Out extends object>(
-  rows: T[],
-  keyOf: (row: T) => unknown[],
-  initial: () => Out,
-  accumulate: (acc: Out, row: T) => void,
-  keep?: (row: T) => boolean,
-): Out[] {
-  const groups = new Map<string, Out>();
+function groupRows<TInput, TOutput extends object>(
+  rows: TInput[],
+  keyOf: (row: TInput) => unknown[],
+  initial: () => TOutput,
+  accumulate: (acc: TOutput, row: TInput) => void,
+  keep?: (row: TInput) => boolean,
+): TOutput[] {
+  const groups = new Map<string, TOutput>();
 
   for (const row of rows) {
     if (keep && !keep(row)) continue;
 
     const keyParts = keyOf(row);
-    if (keyParts.some((part) => part === null || part === undefined || part === '')) {
+    if (
+      keyParts.some(
+        (part) => part === null || part === undefined || part === '',
+      )
+    ) {
       continue;
     }
 
@@ -48,7 +52,9 @@ export type SelectionSummary = {
   'SUM of Selection': number;
 };
 
-export function aggregateSelectionSummaries(rows: Selection[]): SelectionSummary[] {
+export function aggregateSelectionSummaries(
+  rows: Selection[],
+): SelectionSummary[] {
   return groupRows(
     rows,
     (r) => [r.Season, r['Model Code'], r.Style],
@@ -89,7 +95,9 @@ export type ForecastSummary = {
   'Qty Pcs': number;
 } & Record<ForecastWeek, number>;
 
-export function aggregateForecastSummaries(rows: Forecast[]): ForecastSummary[] {
+export function aggregateForecastSummaries(
+  rows: Forecast[],
+): ForecastSummary[] {
   return groupRows(
     rows,
     (r) => [r.Model, r['Model Code']],

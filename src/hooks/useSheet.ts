@@ -12,7 +12,7 @@ type UseSheetOptions<T> = {
 export const sheetKeys = {
   all: ['sheets'] as const,
   range: (spreadsheetId: string, sheetName: string, range: string) =>
-    ['sheets', spreadsheetId, sheetName, range] as const,
+    [...sheetKeys.all, spreadsheetId, sheetName, range] as const,
 };
 
 const MAX_WARNED_ROWS = 3;

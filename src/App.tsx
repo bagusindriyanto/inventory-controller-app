@@ -4,17 +4,21 @@ import Navbar from './components/Navbar';
 import SelectionTable from './components/selection/SelectionTable';
 import EmptySelection from './components/selection/EmptySelection';
 import EmptyProjections from './components/material/EmptyProjections';
+import MaterialProjections from './components/material/MaterialProjections';
 import EmptyStyles from './components/style/EmptyStyles';
 import { useBusinessSummaries } from './hooks/useBusinessSummaries';
 import { useWarehouseData } from './hooks/useMasterData';
-import { calculateSelectionRemaining } from './utils/dataProcessor';
+import {
+  calculateMaterialAvailability,
+  calculateSelectionRemaining,
+} from './utils/dataProcessor';
 
 export default function App() {
   const {
     selectionSummary,
     orderSummary,
-    forecastSummary,
     forecastSeasonalSummary,
+    forecastSummary,
   } = useBusinessSummaries();
   const { material, stock } = useWarehouseData();
 
@@ -30,6 +34,18 @@ export default function App() {
           )
         : [],
     [selectionSummary, orderSummary, forecastSeasonalSummary],
+  );
+
+  const materialAvailability = useMemo(
+    () =>
+      forecastSummary.length && material.data?.length && stock.data?.length
+        ? calculateMaterialAvailability(
+            forecastSummary,
+            material.data,
+            stock.data,
+          )
+        : null,
+    [forecastSummary, material.data, stock.data],
   );
 
   return (
@@ -54,7 +70,12 @@ export default function App() {
             )}
           </TabsContent>
           <TabsContent value="material">
-            <EmptyProjections />
+            {materialAvailability &&
+            materialAvailability.projections.length > 0 ? (
+              <MaterialProjections data={materialAvailability} />
+            ) : (
+              <EmptyProjections />
+            )}
           </TabsContent>
           <TabsContent value="style">
             <EmptyStyles />

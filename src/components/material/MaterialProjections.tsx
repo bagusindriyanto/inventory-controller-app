@@ -1,38 +1,47 @@
-// src/components/MaterialProjections.jsx
-import { useState, useMemo } from 'react';
+// src/components/material/MaterialProjections.tsx
+import { useMemo, useState } from 'react';
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   CalendarClock,
+  Search,
   ShieldAlert,
   ShieldCheck,
-  Search,
-  ArrowUp,
-  ArrowDown,
-  ArrowUpDown,
 } from 'lucide-react';
 import { formatNumber } from '@/utils/numberFormatter';
+import type { MaterialAvailabilityResult } from '@/utils/dataProcessor';
 
-function SortIcon({ direction }) {
+type SortDirection = 'asc' | 'desc' | null;
+
+type MaterialProjectionsProps = {
+  data: MaterialAvailabilityResult;
+};
+
+function SortIcon({ direction }: { direction: SortDirection }) {
   if (direction === 'asc') return <ArrowUp size={12} className="inline ml-1" />;
   if (direction === 'desc')
     return <ArrowDown size={12} className="inline ml-1" />;
   return <ArrowUpDown size={12} className="inline ml-1 opacity-30" />;
 }
 
-export default function MaterialProjections({ data }) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortDirection, setSortDirection] = useState(null); // null | 'asc' | 'desc'
+export default function MaterialProjections({
+  data,
+}: MaterialProjectionsProps) {
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
 
   const { weekKeys, projections } = data;
 
-  // --- Search: by name, materialId, or supplier ---
+  // --- Search: by name, materialId, or buyer ---
   const filteredData = useMemo(() => {
     if (!searchQuery.trim()) return projections;
     const q = searchQuery.toLowerCase();
     return projections.filter(
       (row) =>
-        row.name.toLowerCase().includes(q) ||
-        row.materialId.toLowerCase().includes(q) ||
-        row.supplier.toLowerCase().includes(q),
+        (row.name ?? '').toLowerCase().includes(q) ||
+        (row.materialId ?? '').toLowerCase().includes(q) ||
+        (row.buyer ?? '').toLowerCase().includes(q),
     );
   }, [projections, searchQuery]);
 
@@ -56,7 +65,7 @@ export default function MaterialProjections({ data }) {
     });
   };
 
-  if (!data || !data.projections || data.projections.length === 0) return null;
+  if (!projections.length) return null;
 
   return (
     <div className="overflow-hidden bg-white rounded-xl border shadow-xs border-slate-100">
@@ -79,7 +88,7 @@ export default function MaterialProjections({ data }) {
             <input
               id="material-search"
               type="text"
-              placeholder="Cari nama, ID material, supplier..."
+              placeholder="Cari nama, ID material, buyer..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="py-2 pr-3 pl-9 w-full text-xs rounded-lg border transition-colors border-slate-200 bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
@@ -94,7 +103,7 @@ export default function MaterialProjections({ data }) {
         )}
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs border-collapse min-w-[1200px]">
+        <table className="w-full text-left text-xs border-collapse min-w-300">
           <thead>
             <tr className="font-semibold uppercase border-b bg-slate-100 text-slate-600 border-slate-200">
               <th
@@ -121,10 +130,11 @@ export default function MaterialProjections({ data }) {
             {sortedData.length === 0 ? (
               <tr>
                 <td
-                  colSpan={4 + weekKeys.length}
+                  colSpan={5 + weekKeys.length}
                   className="p-8 text-sm text-center text-slate-400"
                 >
-                  Tidak ada data yang cocok dengan pencarian "{searchQuery}"
+                  Tidak ada data yang cocok dengan pencarian &quot;{searchQuery}
+                  &quot;
                 </td>
               </tr>
             ) : (
@@ -133,7 +143,10 @@ export default function MaterialProjections({ data }) {
                 const isSafe = proj.shortageWeek.includes('Safe');
 
                 return (
-                  <tr key={idx} className="transition-colors hover:bg-slate-50">
+                  <tr
+                    key={proj.materialId ?? idx}
+                    className="transition-colors hover:bg-slate-50"
+                  >
                     <td className="sticky left-0 z-10 p-3 bg-white shadow-md">
                       <div className="font-bold text-slate-800">
                         {proj.name}
@@ -145,7 +158,7 @@ export default function MaterialProjections({ data }) {
                         {proj.materialId}
                       </div>
                       <div className="text-[9px] text-indigo-600 font-semibold uppercase">
-                        {proj.supplier}
+                        {proj.buyer}
                       </div>
                     </td>
                     <td className="p-3 font-semibold text-right text-slate-700">
@@ -180,7 +193,7 @@ export default function MaterialProjections({ data }) {
                     </td>
                     {proj.timeline.map((t, tIdx) => (
                       <td
-                        key={tIdx}
+                        key={`${proj.materialId}-${t.week}-${tIdx}`}
                         className={`p-2 text-center font-mono border-l border-slate-50 ${t.closingStock < 0 ? 'bg-red-50 text-red-600 font-bold' : 'text-slate-600'}`}
                       >
                         <div className="text-[10px]">
