@@ -1,29 +1,13 @@
 // src/components/material/MaterialProjections.tsx
 import { useMemo, useState } from 'react';
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  CalendarClock,
-  Search,
-  ShieldAlert,
-  ShieldCheck,
-} from 'lucide-react';
+import { CalendarClock, Search, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { formatNumber } from '@/utils/numberFormatter';
 import type { MaterialAvailabilityResult } from '@/utils/dataProcessor';
-
-type SortDirection = 'asc' | 'desc' | null;
+import SortIcon, { type SortDirection } from '../sort/SortIcon';
 
 type MaterialProjectionsProps = {
   data: MaterialAvailabilityResult;
 };
-
-function SortIcon({ direction }: { direction: SortDirection }) {
-  if (direction === 'asc') return <ArrowUp size={12} className="inline ml-1" />;
-  if (direction === 'desc')
-    return <ArrowDown size={12} className="inline ml-1" />;
-  return <ArrowUpDown size={12} className="inline ml-1 opacity-30" />;
-}
 
 export default function MaterialProjections({
   data,

@@ -1,14 +1,9 @@
 // src/components/SelectionTable.jsx
 import { useState, useMemo } from 'react';
-import {
-  AlertTriangle,
-  CheckCircle,
-  Search,
-  ArrowUp,
-  ArrowDown,
-  ArrowUpDown,
-} from 'lucide-react';
+import { AlertTriangle, CheckCircle, Search } from 'lucide-react';
 import { formatNumber } from '@/utils/numberFormatter';
+import SortIcon, { type SortDirection } from '../sort/SortIcon';
+import type { SelectionRemainingResult } from '@/utils/dataProcessor';
 
 const COLUMNS = [
   { key: 'season', label: 'Season', align: 'left' },
@@ -19,18 +14,25 @@ const COLUMNS = [
   { key: 'forecastQty', label: 'Total Forecast', align: 'right' },
   { key: 'remainingSelection', label: 'Sisa Selection', align: 'right' },
   { key: 'status', label: 'Status', align: 'center' },
-];
+] as const;
 
-function SortIcon({ direction }) {
-  if (direction === 'asc') return <ArrowUp size={12} className="inline ml-1" />;
-  if (direction === 'desc')
-    return <ArrowDown size={12} className="inline ml-1" />;
-  return <ArrowUpDown size={12} className="inline ml-1 opacity-30" />;
-}
+type SortKey = (typeof COLUMNS)[number]['key'];
 
-export default function SelectionTable({ data }) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: null }); // null | 'asc' | 'desc'
+type SortConfig = {
+  key: SortKey | null;
+  direction: SortDirection;
+};
+
+type SelectionTableProps = {
+  data: SelectionRemainingResult[];
+};
+
+export default function SelectionTable({ data }: SelectionTableProps) {
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    key: null,
+    direction: null,
+  }); // null | 'asc' | 'desc'
 
   // --- Search ---
   const filteredData = useMemo(() => {
@@ -69,7 +71,7 @@ export default function SelectionTable({ data }) {
     return sorted;
   }, [filteredData, sortConfig]);
 
-  const handleSort = (key) => {
+  const handleSort = (key: SortKey) => {
     setSortConfig((prev) => {
       if (prev.key !== key) return { key, direction: 'asc' };
       if (prev.direction === 'asc') return { key, direction: 'desc' };
