@@ -12,6 +12,8 @@ import {
   calculateMaterialAvailability,
   calculateSelectionRemaining,
 } from './utils/dataProcessor';
+import { useSolver } from './hooks/useSolver';
+import StyleProjections from './components/style/StyleProjections';
 
 export default function App() {
   const {
@@ -48,6 +50,13 @@ export default function App() {
     [forecastSummary, material.data, stock.data],
   );
 
+  // Solver runs in a Web Worker; TODO: wire result/loading/error into StyleProjections.
+  const {
+    result: optimumReport,
+    loading: solverLoading,
+    error: solverError,
+  } = useSolver(forecastSummary, material.data, stock.data);
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header Panel */}
@@ -78,7 +87,23 @@ export default function App() {
             )}
           </TabsContent>
           <TabsContent value="style">
-            <EmptyStyles />
+            {solverLoading ? (
+              <div className="flex flex-col items-center justify-center p-12 bg-white rounded-xl border border-slate-100">
+                {/* A premium looking loader spinner */}
+                <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                <p className="mt-4 text-sm text-slate-500 font-medium">
+                  Menghitung Qty Style Teroptimal...
+                </p>
+              </div>
+            ) : solverError ? (
+              <div className="p-5 text-sm text-red-600 bg-red-50 rounded-xl border border-red-100">
+                Error running solver: {solverError}
+              </div>
+            ) : optimumReport ? (
+              <StyleProjections optimumReport={optimumReport} />
+            ) : (
+              <EmptyStyles />
+            )}
           </TabsContent>
         </Tabs>
       </main>

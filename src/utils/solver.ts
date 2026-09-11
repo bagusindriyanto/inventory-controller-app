@@ -1,27 +1,168 @@
 import solver from 'javascript-lp-solver';
+import type { Model as LPModel, SolveResult } from 'javascript-lp-solver';
+import type { ForecastSummary } from '@/utils/aggregations';
+import type { Material, Stock } from '@/schemas/rawData';
+
+/** Single sheet cell after cleaning (`null` = empty). */
+type SheetCell = string | number | null | undefined;
+
+// const toTrimmedString = (value: SheetCell): string => {
+//   if (value === null || value === undefined) return '';
+//   return String(value).trim();
+// };
+
+// const toNumber = (value: SheetCell): number => {
+//   if (value === null || value === undefined || value === '') return 0;
+//   const parsed = typeof value === 'number' ? value : parseFloat(String(value));
+//   return Number.isFinite(parsed) ? parsed : 0;
+// };
+
+const readCell = (row: object, key: string): SheetCell =>
+  (row as Record<string, SheetCell>)[key];
+
+/** First non-empty trimmed value across candidate column names (legacy + current schema). */
+// const readFirst = (row: object, keys: string[]): string => {
+//   for (const key of keys) {
+//     const value = toTrimmedString(readCell(row, key));
+//     if (value !== '') return value;
+//   }
+//   return '';
+// };
+
+// const readFirstNumber = (row: object, keys: string[]): number => {
+//   for (const key of keys) {
+//     const raw = readCell(row, key);
+//     if (raw !== null && raw !== undefined && raw !== '') {
+//       const parsed = toNumber(raw);
+//       if (parsed !== 0 || String(raw).trim() === '0') return parsed;
+//     }
+//   }
+//   return 0;
+// };
+
+export type SolverStatus =
+  | 'SAFE'
+  | 'PARTIAL (SHORTAGE)'
+  | 'UNFEASIBLE (STOP)'
+  | 'EMPTY';
+
+export type MaterialMetadata = {
+  name: string;
+  color: string;
+  unit: string;
+  buyer: string;
+};
+
+type BomComponent = {
+  id: string;
+  cons: number;
+  leadTimeDays: number;
+};
+
+type NormalizedForecast = {
+  raw: ForecastSummary;
+  modelCode: string;
+  style: string;
+};
+
+export type MaterialStockInfo = {
+  id: string;
+  cons: number;
+  needed: number;
+  actual: number;
+  remaining: number;
+  name: string;
+  color: string;
+  unit: string;
+  buyer: string;
+};
+
+export type WeekAllocation = {
+  forecast: number;
+  actual: number;
+  shortage: number;
+  status: SolverStatus;
+  style: string;
+  materialsStock: MaterialStockInfo[];
+};
+
+export type WeekCell = {
+  actual: number | string;
+  forecast: number | string;
+  status: SolverStatus;
+  materialsStock: MaterialStockInfo[];
+};
+
+export type RemainingStockEntry = {
+  id: string;
+  qty: number;
+  name: string;
+  color: string;
+  unit: string;
+  buyer: string;
+};
+
+export type CriticalMaterial = {
+  id: string;
+  name: string;
+  leadTimeDays: number;
+};
+
+export type StylePurchasePlanEntry = {
+  modelCode: string;
+  style: string;
+  maxLeadTimeDays: number;
+  maxLeadTimeWeeks: number;
+  shortageWeek: string;
+  orderTriggerWeek: string;
+  criticalMaterials: CriticalMaterial[];
+};
+
+export type OptimumRow = {
+  modelCode: string;
+  style: string;
+  [week: string]: WeekCell | string;
+};
+
+export type SolverResult = {
+  weeks: string[];
+  rows: OptimumRow[];
+  remaining: Record<string, RemainingStockEntry[]>;
+  stylePurchasePlan: StylePurchasePlanEntry[];
+};
+
+export type SolverWorkerRequest = {
+  forecastData: ForecastSummary[];
+  materialData: Material[];
+  stockData: Stock[];
+};
+
+export type SolverWorkerResponse =
+  | { success: true; data: SolverResult }
+  | { success: false; error: string };
 
 export function calculateOptimumAllocation(
-  forecastData,
-  materialData,
-  stockData,
-) {
+  forecastData: ForecastSummary[],
+  materialData: Material[],
+  stockData: Stock[],
+): SolverResult {
   // A. Kelompokkan BOM per Style & kumpulkan metadata material
-  const bomMap = {};
-  const materialMetadataMap = {};
+  const bomMap: Record<string, BomComponent[]> = {};
+  const materialMetadataMap: Record<string, MaterialMetadata> = {};
   materialData.forEach((mat) => {
-    const modelCode = String(mat['MODEL CODE'] || mat.modelCode || '').trim();
-    const materialId = String(mat.ID || mat.id || '').trim();
-    const consumption = parseFloat(mat.CONS || mat.cons || 0);
-    const leadTimeDays = parseFloat(mat['Total LT'] || mat.totalLt || 0);
+    const modelCode = mat['R3/SKU'];
+    const materialId = mat.ID;
+    const consumption = mat.CONS ?? 0;
+    const leadTimeDays = mat['LT material'] ?? 0;
 
     if (!materialId) return;
 
     if (!materialMetadataMap[materialId]) {
       materialMetadataMap[materialId] = {
-        name: mat.NAMA || mat.name || 'Unknown Material',
-        color: mat.COLOR || mat.color || '-',
-        unit: mat.UOM || mat.uom || 'N/A',
-        supplier: mat.Supplier || mat.supplier || 'NON NOMINATE',
+        name: mat.NAMA || 'Unknown Material',
+        color: mat.COLOR || '-',
+        unit: mat.UOM || 'N/A',
+        buyer: mat.Buyer || 'NON NOMINATE',
       };
     }
 
@@ -32,12 +173,12 @@ export function calculateOptimumAllocation(
   });
 
   // B. Kumpulkan semua material ID yang dipakai di BOM & ada di forecast
-  const forecastModelCodes = new Set();
+  const forecastModelCodes = new Set<string>();
   // C. Pre-normalize Forecast Data sekali di awal (Mengurangi string overhead & loop tunggal)
-  const normalizedForecasts = [];
+  const normalizedForecasts: NormalizedForecast[] = [];
   forecastData.forEach((fc) => {
-    const modelCode = String(fc['Model Code'] || fc.modelCode || '').trim();
-    const style = String(fc.Model || fc.model || '').trim();
+    const modelCode = fc['Model Code'];
+    const style = fc.Model;
     if (!modelCode && !style) return;
 
     forecastModelCodes.add(modelCode);
@@ -49,23 +190,23 @@ export function calculateOptimumAllocation(
     });
   });
 
-  const usedMaterialIds = new Set();
+  const usedMaterialIds = new Set<string>();
   Object.entries(bomMap).forEach(([modelCode, components]) => {
     if (!forecastModelCodes.has(modelCode)) return;
     components.forEach((comp) => usedMaterialIds.add(comp.id));
   });
 
   // D. Transformasikan array stock, hanya track material yang dipakai solver
-  const currentStockTracker = {};
+  const currentStockTracker: Record<string, number> = {};
   stockData.forEach((stk) => {
-    const id = String(stk.ID || stk.id || '').trim();
+    const id = stk.ID;
     if (id && usedMaterialIds.has(id)) {
-      currentStockTracker[id] = parseFloat(stk.Total || stk.total || 0);
+      currentStockTracker[id] = stk.Total ?? 0;
     }
   });
 
   // E. Dapatkan daftar minggu
-  const sampleForecast = forecastData[0] || {};
+  const sampleForecast: ForecastSummary = forecastData[0] ?? {};
   const weekKeys = Object.keys(sampleForecast).filter(
     (key) =>
       /^(W|w|Week|week)?\s*\d+$/.test(key) &&
@@ -73,65 +214,69 @@ export function calculateOptimumAllocation(
       key.toLowerCase() !== 'cc',
   );
 
-  const simulationReport = {};
-  const remainingStockByWeek = {};
+  const simulationReport: Record<string, Record<string, WeekAllocation>> = {};
+  const remainingStockByWeek: Record<string, RemainingStockEntry[]> = {};
 
   // --- RUN SIMULATION LOOP MINGGUAN ---
   weekKeys.forEach((currentWeek) => {
-    // Inisialisasi Model Simplex untuk minggu berjalan
-    const lpModel = {
+    // Inisialisasi Model Simplex untuk minggu berjalan (locals agar `ints` tetap defined)
+    const variables: Record<string, Record<string, number>> = {};
+    const constraints: Record<string, { max: number }> = {};
+    const ints: Record<string, 0 | 1> = {};
+    const lpModel: LPModel = {
       optimize: 'output',
       opType: 'max',
       timeout: 120000,
       tolerance: 0.05,
-      constraints: {},
-      variables: {},
-      ints: {}, // Mengunci agar hasil alokasi berupa bilangan bulat
+      constraints,
+      variables,
+      ints, // Mengunci agar hasil alokasi berupa bilangan bulat
     };
 
     // 1. Setup Variabel & Kendala untuk setiap Style berdasarkan Forecast Minggu Ini
     normalizedForecasts.forEach((fc) => {
       // Mengambil nilai demand menggunakan nomor minggu berjalan sebagai key
-      const forecastQty = fc.raw[currentWeek] || 0;
+      const forecastQty = Number(readCell(fc.raw, currentWeek) ?? 0);
       if (forecastQty <= 0) return; // Lewati jika tidak ada target
 
       const modelCode = fc.modelCode;
-      const components = bomMap[modelCode] || [];
+      const components = bomMap[modelCode] ?? [];
 
       // Fungsi Tujuan: Memaksimalkan total volume produksi
-      lpModel.variables[modelCode] = { output: 1 };
-      lpModel.ints[modelCode] = 1;
+      variables[modelCode] = { output: 1 };
+      ints[modelCode] = 1;
 
       // Hubungkan koefisien pemakaian material (BOM) ke dalam model solver
       components.forEach((comp) => {
-        if (lpModel.constraints[comp.id] === undefined) {
-          lpModel.constraints[comp.id] = {
-            max: currentStockTracker[comp.id] || 0,
+        if (constraints[comp.id] === undefined) {
+          constraints[comp.id] = {
+            max: currentStockTracker[comp.id] ?? 0,
           };
         }
-        lpModel.variables[modelCode][comp.id] = comp.cons;
+        variables[modelCode][comp.id] = comp.cons;
       });
       // Kendala Batas Atas: forecast minggu ini
       const capConstraintKey = `max_forecast_${modelCode}`;
-      lpModel.constraints[capConstraintKey] = { max: forecastQty };
-      lpModel.variables[modelCode][capConstraintKey] = 1;
+      constraints[capConstraintKey] = { max: forecastQty };
+      variables[modelCode][capConstraintKey] = 1;
     });
 
     // 2. JALANKAN METODE SIMPLEX SOLVER
-    const solution = solver.Solve(lpModel);
+    const solution = solver.Solve(lpModel) as SolveResult;
     // 3. PENGURANGAN STOK GUDANG, REKAM HASIL & SIMPAN DATA SISA MATERIAL MINGGU INI
     simulationReport[currentWeek] = {};
     normalizedForecasts.forEach((fc) => {
-      const forecastQty = fc.raw[currentWeek] || 0;
+      const forecastQty = Number(readCell(fc.raw, currentWeek) ?? 0);
       if (forecastQty <= 0) return;
       const modelCode = fc.modelCode;
-      const actualAllocated = solution[modelCode] || 0;
+      const solvedValue = solution[modelCode];
+      const actualAllocated = typeof solvedValue === 'number' ? solvedValue : 0;
 
-      let status = 'SAFE';
+      let status: SolverStatus = 'SAFE';
       if (actualAllocated === 0) status = 'UNFEASIBLE (STOP)';
       else if (actualAllocated < forecastQty) status = 'PARTIAL (SHORTAGE)';
 
-      const components = bomMap[modelCode] || [];
+      const components = bomMap[modelCode] ?? [];
       const materialsStock = components
         .map((comp) => {
           const forecastMaterialNeeded = forecastQty * comp.cons;
@@ -144,11 +289,11 @@ export function calculateOptimumAllocation(
             }
           }
 
-          const meta = materialMetadataMap[comp.id] || {
+          const meta = materialMetadataMap[comp.id] ?? {
             name: 'Unknown Material',
             color: '-',
             unit: 'N/A',
-            supplier: 'NON NOMINATE',
+            buyer: 'NON NOMINATE',
           };
 
           return {
@@ -156,14 +301,11 @@ export function calculateOptimumAllocation(
             cons: comp.cons,
             needed: forecastMaterialNeeded,
             actual: actualMaterialNeeded,
-            remaining:
-              currentStockTracker[comp.id] !== undefined
-                ? currentStockTracker[comp.id]
-                : 0,
+            remaining: currentStockTracker[comp.id],
             name: meta.name,
             color: meta.color,
             unit: meta.unit,
-            supplier: meta.supplier,
+            buyer: meta.buyer,
           };
         })
         .sort(
@@ -182,11 +324,11 @@ export function calculateOptimumAllocation(
 
     remainingStockByWeek[currentWeek] = Object.entries(currentStockTracker)
       .map(([id, qty]) => {
-        const meta = materialMetadataMap[id] || {
+        const meta = materialMetadataMap[id] ?? {
           name: 'Unknown Material',
           color: '-',
           unit: 'N/A',
-          supplier: 'NON NOMINATE',
+          buyer: 'NON NOMINATE',
         };
 
         return {
@@ -195,18 +337,18 @@ export function calculateOptimumAllocation(
           name: meta.name,
           color: meta.color,
           unit: meta.unit,
-          supplier: meta.supplier,
+          buyer: meta.buyer,
         };
       })
       .sort((a, b) => a.qty - b.qty || a.name.localeCompare(b.name));
   });
 
   // --- KALKULASI SHORTAGE WEEK & PURCHASE PLAN PER STYLE ---
-  const stylePurchasePlan = [];
+  const stylePurchasePlan: StylePurchasePlanEntry[] = [];
 
   normalizedForecasts.forEach((fc) => {
     const modelCode = fc.modelCode;
-    const components = bomMap[modelCode] || [];
+    const components = bomMap[modelCode] ?? [];
 
     // 1. Single-pass: hitung maxLeadTime & kumpulkan critical materials
     let maxLtDays = 0;
@@ -216,14 +358,14 @@ export function calculateOptimumAllocation(
       }
     });
 
-    const criticalMaterials = [];
+    const criticalMaterials: CriticalMaterial[] = [];
     if (maxLtDays > 0) {
       components.forEach((comp) => {
         if (comp.leadTimeDays === maxLtDays) {
-          const meta = materialMetadataMap[comp.id] || {};
+          const meta = materialMetadataMap[comp.id];
           criticalMaterials.push({
             id: comp.id,
-            name: meta.name || 'Unknown',
+            name: meta.name ?? 'Unknown',
             leadTimeDays: comp.leadTimeDays,
           });
         }
@@ -232,8 +374,8 @@ export function calculateOptimumAllocation(
     const maxLtWeeks = Math.ceil(maxLtDays / 7);
 
     // 2. Scan shortage week — minggu pertama status bukan SAFE
-    let shortageWeek = null;
-    let orderTriggerWeek = null;
+    let shortageWeek: string | null = null;
+    let orderTriggerWeek: string | null = null;
 
     for (let i = 0; i < weekKeys.length; i++) {
       const week = weekKeys[i];
@@ -259,8 +401,10 @@ export function calculateOptimumAllocation(
       style: fc.style,
       maxLeadTimeDays: maxLtDays,
       maxLeadTimeWeeks: maxLtWeeks,
-      shortageWeek: shortageWeek || 'Safe (Stock Sufficient)',
-      orderTriggerWeek: shortageWeek ? orderTriggerWeek : 'No Action Needed',
+      shortageWeek: shortageWeek ?? 'Safe (Stock Sufficient)',
+      orderTriggerWeek: shortageWeek
+        ? (orderTriggerWeek ?? 'OVERDUE')
+        : 'No Action Needed',
       criticalMaterials,
     });
   });
@@ -279,30 +423,33 @@ export function calculateOptimumAllocation(
   const rows = transformOptimumReport(simulationReport, forecastData);
 
   return {
-    weeks: weekKeys.sort((a, b) => parseInt(a) - parseInt(b)),
+    weeks: [...weekKeys].sort((a, b) => parseInt(a) - parseInt(b)),
     rows,
     remaining: remainingStockByWeek,
     stylePurchasePlan,
   };
 }
 
-export function transformOptimumReport(report, forecastData) {
+export function transformOptimumReport(
+  report: Record<string, Record<string, WeekAllocation>>,
+  forecastData: ForecastSummary[],
+): OptimumRow[] {
   const weeks = Object.keys(report); // Extract keys once outside the loop
   return forecastData.map((fc) => {
-    const modelCode = fc['Model Code'] || fc.modelCode || '';
-    const row = {
+    const modelCode = fc['Model Code'];
+    const row: OptimumRow = {
       modelCode,
-      style: fc.Style || fc.style || '',
+      style: fc.Model,
     };
 
     weeks.forEach((week) => {
-      const weekData = report[week][modelCode];
+      const weekData = report[week]?.[modelCode];
       if (weekData) {
         row[week] = {
           actual: weekData.actual,
           forecast: weekData.forecast,
           status: weekData.status,
-          materialsStock: weekData.materialsStock || [],
+          materialsStock: weekData.materialsStock ?? [],
         };
       } else {
         row[week] = {
@@ -318,7 +465,7 @@ export function transformOptimumReport(report, forecastData) {
   });
 }
 
-function getPurchasePlanPriority(value) {
+function getPurchasePlanPriority(value: string): number {
   if (value === 'OVERDUE') return 0;
   if (value === 'No Action Needed') return 2;
   return 1;

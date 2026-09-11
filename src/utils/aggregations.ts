@@ -47,7 +47,7 @@ function groupRows<TInput, TOutput extends object>(
 
 export type SelectionSummary = {
   Season: string;
-  'Model Code': number;
+  'Model Code': string;
   Style: string;
   'SUM of Selection': number;
 };
@@ -58,10 +58,10 @@ export function aggregateSelectionSummaries(
   return groupRows(
     rows,
     (r) => [r.Season, r['Model Code'], r.Style],
-    () => ({ Season: '', 'Model Code': 0, Style: '', 'SUM of Selection': 0 }),
+    () => ({ Season: '', 'Model Code': '', Style: '', 'SUM of Selection': 0 }),
     (acc, r) => {
       acc.Season = r.Season ?? '';
-      acc['Model Code'] = r['Model Code'] ?? 0;
+      acc['Model Code'] = r['Model Code'] ?? '';
       acc.Style = r.Style ?? '';
       acc['SUM of Selection'] += valueOf(r['SUM of Selection']);
     },
@@ -71,7 +71,7 @@ export function aggregateSelectionSummaries(
 
 export type OrderSummary = {
   Season: string;
-  'Model Code': number;
+  'Model Code': string;
   'Qty ORDER': number;
 };
 
@@ -79,10 +79,10 @@ export function aggregateOrderSummaries(rows: Order[]): OrderSummary[] {
   return groupRows(
     rows,
     (r) => [r.Season, r['Model Code']],
-    () => ({ Season: '', 'Model Code': 0, 'Qty ORDER': 0 }),
+    () => ({ Season: '', 'Model Code': '', 'Qty ORDER': 0 }),
     (acc, r) => {
       acc.Season = r.Season ?? '';
-      acc['Model Code'] = r['Model Code'] ?? 0;
+      acc['Model Code'] = r['Model Code'] ?? '';
       acc['Qty ORDER'] += valueOf(r['Qty ORDER']);
     },
   );
@@ -90,7 +90,7 @@ export function aggregateOrderSummaries(rows: Order[]): OrderSummary[] {
 
 export type ForecastSummary = {
   Model: string;
-  'Model Code': number;
+  'Model Code': string;
   Totals: number;
   'Qty Pcs': number;
 } & Record<ForecastWeek, number>;
@@ -103,7 +103,7 @@ export function aggregateForecastSummaries(
     (r) => [r.Model, r['Model Code']],
     (): ForecastSummary => ({
       Model: '',
-      'Model Code': 0,
+      'Model Code': '',
       Totals: 0,
       'Qty Pcs': 0,
       ...(Object.fromEntries(
@@ -112,7 +112,7 @@ export function aggregateForecastSummaries(
     }),
     (acc, r) => {
       acc.Model = r.Model ?? '';
-      acc['Model Code'] = r['Model Code'] ?? 0;
+      acc['Model Code'] = r['Model Code'] ?? '';
       acc.Totals += valueOf(r.Totals);
       acc['Qty Pcs'] += valueOf(r['Qty Pcs']);
       for (const week of FORECAST_WEEK_KEYS) {
@@ -126,7 +126,7 @@ export function aggregateForecastSummaries(
 export type ForecastSeasonalSummary = {
   Season: string;
   Model: string;
-  'Model Code': number;
+  'Model Code': string;
   Totals: number;
 };
 
@@ -136,11 +136,11 @@ export function aggregateForecastSeasonalSummaries(
   return groupRows(
     rows,
     (r) => [r.Season, r.Model, r['Model Code']],
-    () => ({ Season: '', Model: '', 'Model Code': 0, Totals: 0 }),
+    () => ({ Season: '', Model: '', 'Model Code': '', Totals: 0 }),
     (acc, r) => {
       acc.Season = r.Season ?? '';
       acc.Model = r.Model ?? '';
-      acc['Model Code'] = r['Model Code'] ?? 0;
+      acc['Model Code'] = r['Model Code'] ?? '';
       acc.Totals += valueOf(r.Totals);
     },
     (r) => r.Model !== '#N/A',
