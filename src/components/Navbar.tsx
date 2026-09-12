@@ -1,8 +1,9 @@
 import { Layers } from 'lucide-react';
+import RefreshToggle from './RefreshToggle';
 
 export default function Navbar() {
   return (
-    <header className="p-4 text-white border-b shadow-md bg-slate-900 border-slate-800">
+    <header className="px-6 py-4 text-white border-b shadow-md bg-slate-900 border-slate-800">
       <div className="flex justify-between items-center mx-auto max-w-7xl">
         <div className="flex gap-3 items-center">
           <div className="p-2 rounded-lg bg-primary">
@@ -17,6 +18,7 @@ export default function Navbar() {
             </p>
           </div>
         </div>
+        <RefreshToggle />
       </div>
     </header>
   );
