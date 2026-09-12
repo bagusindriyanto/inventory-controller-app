@@ -1,6 +1,10 @@
 import solver from 'javascript-lp-solver';
 import type { Model as LPModel, SolveResult } from 'javascript-lp-solver';
-import type { ForecastSummary } from '@/utils/aggregations';
+import {
+  FORECAST_WEEK_KEYS,
+  type ForecastSummary,
+  type ForecastWeek,
+} from '@/utils/aggregations';
 import type { Material, Stock } from '@/schemas/rawData';
 
 /** Single sheet cell after cleaning (`null` = empty). */
@@ -17,8 +21,8 @@ type SheetCell = string | number | null | undefined;
 //   return Number.isFinite(parsed) ? parsed : 0;
 // };
 
-const readCell = (row: object, key: string): SheetCell =>
-  (row as Record<string, SheetCell>)[key];
+const readCell = (row: object, key: string | number): SheetCell =>
+  (row as Record<string | number, SheetCell>)[key];
 
 /** First non-empty trimmed value across candidate column names (legacy + current schema). */
 // const readFirst = (row: object, keys: string[]): string => {
@@ -113,19 +117,18 @@ export type StylePurchasePlanEntry = {
   style: string;
   maxLeadTimeDays: number;
   maxLeadTimeWeeks: number;
-  shortageWeek: string;
-  orderTriggerWeek: string;
+  shortageWeek: ForecastWeek | 'Safe (Stock Sufficient)';
+  orderTriggerWeek: ForecastWeek | 'OVERDUE' | 'No Action Needed';
   criticalMaterials: CriticalMaterial[];
 };
 
 export type OptimumRow = {
   modelCode: string;
   style: string;
-  [week: string]: WeekCell | string;
-};
+} & Partial<Record<ForecastWeek, WeekCell>>;
 
 export type SolverResult = {
-  weeks: string[];
+  weeks: ForecastWeek[];
   rows: OptimumRow[];
   remaining: Record<string, RemainingStockEntry[]>;
   stylePurchasePlan: StylePurchasePlanEntry[];
@@ -207,15 +210,16 @@ export function calculateOptimumAllocation(
 
   // E. Dapatkan daftar minggu
   const sampleForecast: ForecastSummary = forecastData[0] ?? {};
-  const weekKeys = Object.keys(sampleForecast).filter(
-    (key) =>
-      /^(W|w|Week|week)?\s*\d+$/.test(key) &&
-      key.toLowerCase() !== 'id' &&
-      key.toLowerCase() !== 'cc',
+  const weekKeys: ForecastWeek[] = FORECAST_WEEK_KEYS.filter(
+    (week) => week in sampleForecast,
   );
 
-  const simulationReport: Record<string, Record<string, WeekAllocation>> = {};
-  const remainingStockByWeek: Record<string, RemainingStockEntry[]> = {};
+  const simulationReport: Partial<
+    Record<ForecastWeek, Record<string, WeekAllocation>>
+  > = {};
+  const remainingStockByWeek: Partial<
+    Record<ForecastWeek, RemainingStockEntry[]>
+  > = {};
 
   // --- RUN SIMULATION LOOP MINGGUAN ---
   weekKeys.forEach((currentWeek) => {
@@ -312,7 +316,7 @@ export function calculateOptimumAllocation(
           (a, b) => a.remaining - b.remaining || a.name.localeCompare(b.name),
         );
 
-      simulationReport[currentWeek][modelCode] = {
+      simulationReport[currentWeek]![modelCode] = {
         forecast: forecastQty,
         actual: actualAllocated,
         shortage: forecastQty - actualAllocated,
@@ -374,8 +378,8 @@ export function calculateOptimumAllocation(
     const maxLtWeeks = Math.ceil(maxLtDays / 7);
 
     // 2. Scan shortage week — minggu pertama status bukan SAFE
-    let shortageWeek: string | null = null;
-    let orderTriggerWeek: string | null = null;
+    let shortageWeek: ForecastWeek | 'Safe (Stock Sufficient)' | null = null;
+    let orderTriggerWeek: ForecastWeek | 'OVERDUE' | null = null;
 
     for (let i = 0; i < weekKeys.length; i++) {
       const week = weekKeys[i];
@@ -414,8 +418,11 @@ export function calculateOptimumAllocation(
     const priorityA = getPurchasePlanPriority(a.orderTriggerWeek);
     const priorityB = getPurchasePlanPriority(b.orderTriggerWeek);
     if (priorityA !== priorityB) return priorityA - priorityB;
-    if (priorityA === 1) {
-      return parseInt(a.orderTriggerWeek) - parseInt(b.orderTriggerWeek);
+    if (
+      typeof a.orderTriggerWeek === 'number' &&
+      typeof b.orderTriggerWeek === 'number'
+    ) {
+      return a.orderTriggerWeek - b.orderTriggerWeek;
     }
     return 0;
   });
@@ -423,7 +430,7 @@ export function calculateOptimumAllocation(
   const rows = transformOptimumReport(simulationReport, forecastData);
 
   return {
-    weeks: [...weekKeys].sort((a, b) => parseInt(a) - parseInt(b)),
+    weeks: [...weekKeys].sort((a, b) => a - b),
     rows,
     remaining: remainingStockByWeek,
     stylePurchasePlan,
@@ -434,7 +441,7 @@ export function transformOptimumReport(
   report: Record<string, Record<string, WeekAllocation>>,
   forecastData: ForecastSummary[],
 ): OptimumRow[] {
-  const weeks = Object.keys(report); // Extract keys once outside the loop
+  const weeks = FORECAST_WEEK_KEYS.filter((week) => week in report); // Extract keys once outside the loop
   return forecastData.map((fc) => {
     const modelCode = fc['Model Code'];
     const row: OptimumRow = {
@@ -465,7 +472,9 @@ export function transformOptimumReport(
   });
 }
 
-function getPurchasePlanPriority(value: string): number {
+function getPurchasePlanPriority(
+  value: ForecastWeek | 'OVERDUE' | 'No Action Needed',
+): number {
   if (value === 'OVERDUE') return 0;
   if (value === 'No Action Needed') return 2;
   return 1;

@@ -4,11 +4,15 @@ import { PreviewCard as PreviewCardPrimitive } from "@base-ui/react/preview-card
 
 import { cn } from "@/lib/utils"
 
-function HoverCard({ ...props }: PreviewCardPrimitive.Root.Props) {
+function HoverCard<Payload = unknown>({
+  ...props
+}: PreviewCardPrimitive.Root.Props<Payload>) {
   return <PreviewCardPrimitive.Root data-slot="hover-card" {...props} />
 }
 
-function HoverCardTrigger({ ...props }: PreviewCardPrimitive.Trigger.Props) {
+function HoverCardTrigger<Payload = unknown>({
+  ...props
+}: PreviewCardPrimitive.Trigger.Props<Payload>) {
   return (
     <PreviewCardPrimitive.Trigger data-slot="hover-card-trigger" {...props} />
   )
