@@ -5,11 +5,7 @@ import type { Material } from '@/features/material/api/material.schema';
 import type { Stock } from '@/features/stock/api/stock.schema';
 import type { ForecastSummary, ForecastWeek } from './aggregations';
 
-export type SolverStatus =
-  | 'SAFE'
-  | 'PARTIAL (SHORTAGE)'
-  | 'UNFEASIBLE (STOP)'
-  | 'EMPTY';
+export type SolverStatus = 'SAFE' | 'PARTIAL (SHORTAGE)' | 'UNFEASIBLE (STOP)';
 
 export type MaterialMetadata = {
   name: string;
@@ -42,18 +38,9 @@ export type MaterialStockInfo = {
   buyer: string;
 };
 
-export type WeekAllocation = {
+export type Allocation = {
   forecast: number;
   actual: number;
-  shortage: number;
-  status: SolverStatus;
-  style: string;
-  materialsStock: MaterialStockInfo[];
-};
-
-export type WeekCell = {
-  actual: number | string;
-  forecast: number | string;
   status: SolverStatus;
   materialsStock: MaterialStockInfo[];
 };
@@ -73,26 +60,25 @@ export type CriticalMaterial = {
   leadTimeDays: number;
 };
 
-export type StylePurchasePlanEntry = {
-  modelCode: string;
-  style: string;
+export type PurchasePlan = {
   maxLeadTimeDays: number;
   maxLeadTimeWeeks: number;
-  shortageWeek: ForecastWeek | 'Safe (Stock Sufficient)';
+  shortageWeek: ForecastWeek | null;
   orderTriggerWeek: ForecastWeek | 'OVERDUE' | 'No Action Needed';
   criticalMaterials: CriticalMaterial[];
 };
 
-export type OptimumRow = {
+export type StyleProjection = {
   modelCode: string;
   style: string;
-} & Partial<Record<ForecastWeek, WeekCell>>;
+  purchasePlan: PurchasePlan;
+  weeks: Partial<Record<ForecastWeek, Allocation>>;
+};
 
 export type SolverResult = {
   weeks: ForecastWeek[];
-  rows: OptimumRow[];
-  remaining: Record<ForecastWeek, RemainingStockEntry[]>;
-  stylePurchasePlan: StylePurchasePlanEntry[];
+  styles: StyleProjection[];
+  remainingByWeek: Partial<Record<ForecastWeek, RemainingStockEntry[]>>;
 };
 
 export type SolverWorkerRequest = {
@@ -157,7 +143,7 @@ export function calculateOptimumAllocation(
   const usedMaterialIds = new Set<string>();
   Object.entries(bomMap).forEach(([modelCode, components]) => {
     if (!forecastModelCodes.has(modelCode)) return;
-    components.forEach((comp) => usedMaterialIds.add(comp.id));
+    components.forEach((component) => usedMaterialIds.add(component.id));
   });
 
   // D. Transformasikan array stock, hanya track material yang dipakai solver
@@ -174,10 +160,7 @@ export function calculateOptimumAllocation(
     forecastData[0]?.weeks ?? {},
   ).map(Number);
 
-  const simulationReport: Record<
-    ForecastWeek,
-    Record<string, WeekAllocation>
-  > = {};
+  const simulationReport: Record<ForecastWeek, Record<string, Allocation>> = {};
   const remainingStockByWeek: Record<ForecastWeek, RemainingStockEntry[]> = {};
 
   // --- RUN SIMULATION LOOP MINGGUAN ---
@@ -278,9 +261,7 @@ export function calculateOptimumAllocation(
       simulationReport[currentWeek]![modelCode] = {
         forecast: forecastQty,
         actual: actualAllocated,
-        shortage: forecastQty - actualAllocated,
         status: status,
-        style: forecast.style,
         materialsStock: materialsStock,
       };
     });
@@ -307,29 +288,27 @@ export function calculateOptimumAllocation(
   });
 
   // --- KALKULASI SHORTAGE WEEK & PURCHASE PLAN PER STYLE ---
-  const stylePurchasePlan: StylePurchasePlanEntry[] = [];
-
-  normalizedForecasts.forEach((fc) => {
-    const modelCode = fc.modelCode;
+  const styles = normalizedForecasts.map((forecast): StyleProjection => {
+    const modelCode = forecast.modelCode;
     const components = bomMap[modelCode] ?? [];
 
     // 1. Single-pass: hitung maxLeadTime & kumpulkan critical materials
     let maxLtDays = 0;
-    components.forEach((comp) => {
-      if (comp.leadTimeDays > maxLtDays) {
-        maxLtDays = comp.leadTimeDays;
+    components.forEach((component) => {
+      if (component.leadTimeDays > maxLtDays) {
+        maxLtDays = component.leadTimeDays;
       }
     });
 
     const criticalMaterials: CriticalMaterial[] = [];
     if (maxLtDays > 0) {
-      components.forEach((comp) => {
-        if (comp.leadTimeDays === maxLtDays) {
-          const meta = materialMetadataMap[comp.id];
+      components.forEach((component) => {
+        if (component.leadTimeDays === maxLtDays) {
+          const meta = materialMetadataMap[component.id];
           criticalMaterials.push({
-            id: comp.id,
+            id: component.id,
             name: meta.name ?? 'Unknown',
-            leadTimeDays: comp.leadTimeDays,
+            leadTimeDays: component.leadTimeDays,
           });
         }
       });
@@ -337,7 +316,7 @@ export function calculateOptimumAllocation(
     const maxLtWeeks = Math.ceil(maxLtDays / 7);
 
     // 2. Scan shortage week — minggu pertama status bukan SAFE
-    let shortageWeek: ForecastWeek | 'Safe (Stock Sufficient)' | null = null;
+    let shortageWeek: ForecastWeek | null = null;
     let orderTriggerWeek: ForecastWeek | 'OVERDUE' | null = null;
 
     for (let i = 0; i < weekKeys.length; i++) {
@@ -359,82 +338,29 @@ export function calculateOptimumAllocation(
       }
     }
 
-    stylePurchasePlan.push({
-      modelCode,
-      style: fc.style,
-      maxLeadTimeDays: maxLtDays,
-      maxLeadTimeWeeks: maxLtWeeks,
-      shortageWeek: shortageWeek ?? 'Safe (Stock Sufficient)',
-      orderTriggerWeek: shortageWeek
-        ? (orderTriggerWeek ?? 'OVERDUE')
-        : 'No Action Needed',
-      criticalMaterials,
-    });
-  });
-
-  // Sort: OVERDUE pertama, lalu by week ASC, lalu Safe terakhir
-  stylePurchasePlan.sort((a, b) => {
-    const priorityA = getPurchasePlanPriority(a.orderTriggerWeek);
-    const priorityB = getPurchasePlanPriority(b.orderTriggerWeek);
-    if (priorityA !== priorityB) return priorityA - priorityB;
-    if (
-      typeof a.orderTriggerWeek === 'number' &&
-      typeof b.orderTriggerWeek === 'number'
-    ) {
-      return a.orderTriggerWeek - b.orderTriggerWeek;
+    const weeks: StyleProjection['weeks'] = {};
+    for (const week of weekKeys) {
+      const allocation = simulationReport[week]?.[modelCode];
+      if (allocation) weeks[week] = allocation;
     }
-    return 0;
-  });
 
-  const rows = transformOptimumReport(simulationReport, forecastData);
+    return {
+      modelCode,
+      style: forecast.style,
+      weeks,
+      purchasePlan: {
+        maxLeadTimeDays: maxLtDays,
+        maxLeadTimeWeeks: maxLtWeeks,
+        shortageWeek,
+        orderTriggerWeek: orderTriggerWeek ?? 'No Action Needed',
+        criticalMaterials,
+      },
+    };
+  });
 
   return {
     weeks: [...weekKeys].sort((a, b) => a - b),
-    rows,
-    remaining: remainingStockByWeek,
-    stylePurchasePlan,
+    styles,
+    remainingByWeek: remainingStockByWeek,
   };
-}
-
-export function transformOptimumReport(
-  report: Record<ForecastWeek, Record<string, WeekAllocation>>,
-  forecastData: ForecastSummary[],
-): OptimumRow[] {
-  const weeks: ForecastWeek[] = Object.keys(report).map(Number);
-  return forecastData.map((fc) => {
-    const modelCode = fc.modelCode;
-    const row: OptimumRow = {
-      modelCode,
-      style: fc.style,
-    };
-
-    weeks.forEach((week) => {
-      const weekData = report[week]?.[modelCode];
-      if (weekData) {
-        row[week] = {
-          actual: weekData.actual,
-          forecast: weekData.forecast,
-          status: weekData.status,
-          materialsStock: weekData.materialsStock ?? [],
-        };
-      } else {
-        row[week] = {
-          actual: '-',
-          forecast: '-',
-          status: 'EMPTY',
-          materialsStock: [],
-        };
-      }
-    });
-
-    return row;
-  });
-}
-
-function getPurchasePlanPriority(
-  value: ForecastWeek | 'OVERDUE' | 'No Action Needed',
-): number {
-  if (value === 'OVERDUE') return 0;
-  if (value === 'No Action Needed') return 2;
-  return 1;
 }

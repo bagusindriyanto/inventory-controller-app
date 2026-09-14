@@ -1,18 +1,17 @@
 import { cn } from '@/lib/utils';
 import { formatNumber } from '@/utils/numberFormatter';
 import { PreviewCard } from '@base-ui/react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from '../ui/hover-card';
 import type {
-  CriticalMaterial,
   MaterialStockInfo,
   RemainingStockEntry,
   SolverResult,
-  StylePurchasePlanEntry,
+  PurchasePlan,
 } from '@/utils/solver';
 import type { ForecastWeek } from '@/utils/aggregations';
 
@@ -27,14 +26,9 @@ export type MaterialUsagePayload = {
   materialsStock: MaterialStockInfo[];
 };
 
-export type PurchasePlanPayload = {
+export type PurchasePlanPayload = PurchasePlan & {
   style: string;
   modelCode: string;
-  orderTriggerWeek: ForecastWeek | 'OVERDUE' | 'No Action Needed';
-  shortageWeek?: ForecastWeek | 'Safe (Stock Sufficient)';
-  maxLeadTimeDays?: number;
-  maxLeadTimeWeeks?: number;
-  criticalMaterials: CriticalMaterial[];
 };
 
 const remainingCard = PreviewCard.createHandle<RemainingStockPayload>();
@@ -87,20 +81,9 @@ export default function StyleProjections({
 
   const {
     weeks: weeksHeader,
-    rows: tableRows,
-    remaining: remainingData,
-    stylePurchasePlan,
+    styles: tableRows,
+    remainingByWeek: remainingData,
   } = optimumReport;
-
-  const purchasePlanMap = useMemo(() => {
-    const map: Record<string, StylePurchasePlanEntry> = {};
-    if (stylePurchasePlan) {
-      stylePurchasePlan.forEach((plan) => {
-        map[plan.modelCode] = plan;
-      });
-    }
-    return map;
-  }, [stylePurchasePlan]);
 
   return (
     <>
@@ -190,7 +173,7 @@ export default function StyleProjections({
                     {row.style}
                   </td>
                   {(() => {
-                    const plan = purchasePlanMap[row.modelCode];
+                    const plan = row.purchasePlan;
                     const orderTrigger = plan.orderTriggerWeek;
                     const isOverdue = orderTrigger === 'OVERDUE';
                     const isSafe = orderTrigger === 'No Action Needed';
@@ -199,11 +182,7 @@ export default function StyleProjections({
                     const payload: PurchasePlanPayload = {
                       style: row.style,
                       modelCode: row.modelCode,
-                      orderTriggerWeek: orderTrigger,
-                      shortageWeek: plan.shortageWeek,
-                      maxLeadTimeDays: plan.maxLeadTimeDays,
-                      maxLeadTimeWeeks: plan.maxLeadTimeWeeks,
-                      criticalMaterials: plan.criticalMaterials,
+                      ...plan,
                     };
 
                     return (
@@ -218,23 +197,19 @@ export default function StyleProjections({
                           },
                         )}
                       >
-                        {plan ? (
-                          <HoverCardTrigger
-                            handle={purchaseCard}
-                            id={`purchase-${row.modelCode}`}
-                            payload={payload}
-                          >
-                            <span className="cursor-help">{orderTrigger}</span>
-                          </HoverCardTrigger>
-                        ) : (
-                          <span className="text-slate-400">-</span>
-                        )}
+                        <HoverCardTrigger
+                          handle={purchaseCard}
+                          id={`purchase-${row.modelCode}`}
+                          payload={payload}
+                        >
+                          <span className="cursor-help">{orderTrigger}</span>
+                        </HoverCardTrigger>
                       </td>
                     );
                   })()}
                   {/* Looping Kolom Minggu Berjalan */}
                   {weeksHeader.map((week) => {
-                    const cell = row[week];
+                    const cell = row.weeks[week];
                     const materialsStock = cell?.materialsStock ?? [];
                     const payload: MaterialUsagePayload = {
                       week,
@@ -252,7 +227,7 @@ export default function StyleProjections({
                           'bg-red-100': cell?.status === 'UNFEASIBLE (STOP)',
                         })}
                       >
-                        {cell?.status === 'EMPTY' ? (
+                        {!cell ? (
                           <span className="text-gray-300">-</span>
                         ) : (
                           <div className="flex flex-col gap-1 items-center justify-center">
@@ -400,8 +375,7 @@ export default function StyleProjections({
         triggerId={triggerPurchaseId}
       >
         {({ payload }) => {
-          const isShortageSafe =
-            payload?.shortageWeek === 'Safe (Stock Sufficient)';
+          const isShortageSafe = payload?.shortageWeek === null;
 
           return (
             <HoverCardContent side="top" className="w-72">
@@ -420,7 +394,9 @@ export default function StyleProjections({
                       isShortageSafe ? 'text-green-600' : 'text-red-600',
                     )}
                   >
-                    {payload?.shortageWeek}
+                    {isShortageSafe
+                      ? 'Safe (Stock Sufficient)'
+                      : payload?.shortageWeek}
                   </span>
                 </div>
                 <div className="flex justify-between">

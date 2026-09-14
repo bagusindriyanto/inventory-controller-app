@@ -15,7 +15,7 @@ export default function MaterialProjections({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
 
-  const { weekKeys, projections } = data;
+  const { weeks, projections } = data;
 
   // --- Search: by name, materialId, or buyer ---
   const filteredData = useMemo(() => {
@@ -103,9 +103,9 @@ export default function MaterialProjections({
               <th className="p-3 font-bold text-center text-amber-900 bg-amber-50">
                 Week to Buy
               </th>
-              {weekKeys.map((wk) => (
-                <th key={wk} className="p-3 font-mono text-center">
-                  {wk}
+              {weeks.map((week) => (
+                <th key={week} className="p-3 font-mono text-center">
+                  {week}
                 </th>
               ))}
             </tr>
@@ -114,7 +114,7 @@ export default function MaterialProjections({
             {sortedData.length === 0 ? (
               <tr>
                 <td
-                  colSpan={5 + weekKeys.length}
+                  colSpan={5 + weeks.length}
                   className="p-8 text-sm text-center text-slate-400"
                 >
                   Tidak ada data yang cocok dengan pencarian &quot;{searchQuery}
@@ -124,7 +124,7 @@ export default function MaterialProjections({
             ) : (
               sortedData.map((proj, idx) => {
                 const isUrgent = proj.orderTriggerWeek === 'OVERDUE';
-                const isSafe = proj.shortageWeek.includes('Safe');
+                const isSafe = proj.shortageWeek === null;
 
                 return (
                   <tr
