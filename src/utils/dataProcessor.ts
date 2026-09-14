@@ -2,12 +2,6 @@ import type { Material } from '@/features/material/api/material.schema';
 import type { Stock } from '@/features/stock/api/stock.schema';
 import type { ForecastSummary } from '@/utils/aggregations';
 
-/** Single sheet cell after cleaning (`null` = empty / `#N/A`-style error). */
-type SheetCell = string | number | null | undefined;
-
-const readCell = (row: object, key: string): SheetCell =>
-  (row as Record<string, SheetCell>)[key];
-
 export type WeeklyPoint = {
   week: string;
   demand: number;
@@ -44,12 +38,7 @@ export function calculateMaterialAvailability(
   // 1. Ekstrak header minggu (Kolom N s.d AN biasanya dinamai W23, W24, atau berupa penomoran minggu)
   // Sebagai fallback aman, kita mendeteksi semua properti yang memiliki prefiks huruf W atau berupa angka minggu/string minggu
   const sampleForecast = forecastData[0] || {};
-  const weekKeys = Object.keys(sampleForecast).filter(
-    (key) =>
-      /^(W|w|Week|week)?\s*\d+$/.test(key) &&
-      key.toLowerCase() !== 'id' &&
-      key.toLowerCase() !== 'cc',
-  );
+  const weekKeys = Object.keys(sampleForecast.weeks);
 
   // 2. Petakan Stok Awal Material berdasarkan ID
   const stockMap: Record<string, number> = {};
@@ -112,7 +101,7 @@ export function calculateMaterialAvailability(
 
     matchingForecasts.forEach((forecast) => {
       weekKeys.forEach((week) => {
-        const forecastQty = Number(readCell(forecast, week) ?? 0);
+        const forecastQty = forecast.weeks[week] ?? 0;
         const materialNeeded = forecastQty * consumption;
 
         if (!weeklyMaterialDemand[materialId])

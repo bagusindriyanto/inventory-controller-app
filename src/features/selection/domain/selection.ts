@@ -1,21 +1,8 @@
-export type SelectionBalanceInput = {
-  season: string;
-  modelCode: string;
-  style: string;
-  quantity: number;
-};
-
-export type OrderQuantityInput = {
-  season: string;
-  modelCode: string;
-  quantity: number;
-};
-
-export type ForecastQuantityInput = {
-  season: string;
-  modelCode: string;
-  quantity: number;
-};
+import type {
+  ForecastSeasonalSummary,
+  OrderSummary,
+  SelectionSummary,
+} from '@/utils/aggregations';
 
 export type SelectionBalanceStatus = 'Over-consumed' | 'Balanced' | 'Surplus';
 
@@ -41,20 +28,20 @@ const getStatus = (remaining: number): SelectionBalanceStatus => {
 
 /** Calculates the remaining seasonal selection after orders and forecasts. */
 export function calculateSelectionBalances(
-  selections: SelectionBalanceInput[],
-  orders: OrderQuantityInput[],
-  forecasts: ForecastQuantityInput[],
+  selections: SelectionSummary[],
+  orders: OrderSummary[],
+  forecasts: ForecastSeasonalSummary[],
 ): SelectionBalance[] {
   const orderLookup = new Map(
     orders.map((order) => [
       createLookupKey(order.season, order.modelCode),
-      order.quantity,
+      order.orderQty,
     ]),
   );
   const forecastLookup = new Map(
     forecasts.map((forecast) => [
       createLookupKey(forecast.season, forecast.modelCode),
-      forecast.quantity,
+      forecast.totalQty,
     ]),
   );
 
@@ -62,14 +49,14 @@ export function calculateSelectionBalances(
     const key = createLookupKey(selection.season, selection.modelCode);
     const orderQty = orderLookup.get(key) ?? 0;
     const forecastQty = forecastLookup.get(key) ?? 0;
-    const remainingSelection = selection.quantity - orderQty - forecastQty;
+    const remainingSelection = selection.selectionQty - orderQty - forecastQty;
     const status = getStatus(remainingSelection);
 
     return {
       season: selection.season,
       modelCode: selection.modelCode,
       style: selection.style,
-      selectionQty: selection.quantity,
+      selectionQty: selection.selectionQty,
       orderQty,
       forecastQty,
       remainingSelection,

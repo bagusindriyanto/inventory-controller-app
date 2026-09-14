@@ -3,74 +3,78 @@ import type { Order } from '@/features/order/api/order.schema';
 import type { Selection } from '@/features/selection/api/selection.schema';
 
 type Aggregators<T> = {
-  [K in keyof T]?: (current: T[K], incoming: T[K]) => T[K];
+  [K in keyof T]-?: (current: T[K] | undefined, incoming: T[K]) => T[K];
 };
 
-type AggregateResult<T, G extends keyof T, A extends keyof T> = {
+type AggregateResult<T, G extends keyof T, R> = {
   [K in G]: NonNullable<T[K]>;
-} & { [K in A]: T[K] };
+} & {
+  [K in keyof R]: R[K] extends (...args: never[]) => infer Result ? Result : never;
+};
 
+/**
+ * Groups rows by JSON-serializable column values, skipping nullish group keys.
+ * Reducers receive undefined on the first row and must not mutate incoming values.
+ * Results contain only group and aggregate columns, in first-seen group order.
+ * Aggregate column types are inferred from reducer return types.
+ */
 export function groupByAggregate<
-  T extends Record<string, unknown>,
+  T extends object,
   G extends keyof T,
-  A extends keyof T,
+  A extends Exclude<keyof T, G>,
+  R extends Pick<Aggregators<T>, A>,
 >(
-  data: T[],
+  data: readonly T[],
   groupBy: readonly G[],
-  aggregators: Pick<Aggregators<T>, A>,
-): AggregateResult<T, G, A>[] {
+  aggregators: Pick<Aggregators<T>, A> & R,
+): AggregateResult<T, G, R>[] {
   const map = new Map<string, Pick<T, G | A>>();
+  const fields = Reflect.ownKeys(aggregators) as A[];
+  const reducers: Pick<Aggregators<T>, A> = aggregators;
 
   for (const row of data) {
     if (groupBy.some((field) => row[field] == null)) continue;
 
     const key = JSON.stringify(groupBy.map((field) => row[field]));
 
-    const current = map.get(key);
+    let current = map.get(key);
 
     if (!current) {
-      const initial = {} as Pick<T, G | A>;
-
-      for (const field of groupBy) {
-        initial[field] = row[field];
-      }
-
-      for (const field of Object.keys(aggregators) as A[]) {
-        initial[field] = structuredClone(row[field]);
-      }
-
-      map.set(key, initial);
-      continue;
+      current = Object.fromEntries([
+        ...groupBy.map((field) => [field, row[field]]),
+        ...fields.map((field) => [field, undefined]),
+      ]) as Pick<T, G | A>;
+      map.set(key, current);
     }
 
-    for (const field of Object.keys(aggregators) as A[]) {
-      const aggregate = aggregators[field];
-
-      if (aggregate) {
-        current[field] = aggregate(current[field], row[field]);
-      }
+    for (const field of fields) {
+      current[field] = reducers[field](current[field], row[field]);
     }
   }
 
-  return [...map.values()] as AggregateResult<T, G, A>[];
+  return [...map.values()] as AggregateResult<T, G, R>[];
 }
 
-const sumNumber = (a: number | null, b: number | null): number =>
-  (a ?? 0) + (b ?? 0);
+/** Nullish quantities contribute zero, including in single-row groups. */
+export const sumNumber = (
+  a: number | null | undefined,
+  b: number | null | undefined,
+): number => (a ?? 0) + (b ?? 0);
 
-const sumWeeks = (
-  current: Record<number, number | null | undefined>,
-  incoming: Record<number, number | null | undefined>,
-) => {
-  const result = { ...current };
+/** Sums a numeric record by key. All present keys have numeric values; nullish values become zero. */
+export const sumByKey = (
+  current: Record<string, number | null | undefined> | undefined,
+  incoming: Record<string, number | null | undefined>,
+): Record<string, number> => {
+  const result = new Map(
+    Object.entries(current ?? {}).map(([key, value]) => [key, value ?? 0]),
+  );
 
-  for (const [week, value] of Object.entries(incoming)) {
-    const key = Number(week);
-
-    result[key] = (result[key] ?? 0) + (value ?? 0);
+  for (const [key, value] of Object.entries(incoming)) {
+    result.set(key, sumNumber(result.get(key), value));
   }
 
-  return result;
+  return Object.fromEntries(result);
 };
 
 export function aggregateSelectionSummaries(rows: Selection[]) {
@@ -95,7 +99,7 @@ export function aggregateForecastSummaries(rows: Forecast[]) {
   return groupByAggregate(rows, ['modelCode', 'style'], {
     totalQty: sumNumber,
     pcsQty: sumNumber,
-    weeks: sumWeeks,
+    weeks: sumByKey,
   });
 }
 

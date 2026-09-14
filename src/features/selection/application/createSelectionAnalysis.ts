@@ -14,22 +14,5 @@ export function createSelectionAnalysis(
   orders: OrderSummary[],
   forecasts: ForecastSeasonalSummary[],
 ): SelectionBalance[] {
-  return calculateSelectionBalances(
-    selections.map((row) => ({
-      season: row.season,
-      modelCode: row.modelCode,
-      style: row.style,
-      quantity: row.selectionQty,
-    })),
-    orders.map((row) => ({
-      season: row.season,
-      modelCode: row.modelCode,
-      quantity: row.orderQty,
-    })),
-    forecasts.map((row) => ({
-      season: row.season,
-      modelCode: row.modelCode,
-      quantity: row.totalQty,
-    })),
-  );
+  return calculateSelectionBalances(selections, orders, forecasts);
 }
