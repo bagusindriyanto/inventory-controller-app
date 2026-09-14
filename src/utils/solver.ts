@@ -5,10 +5,9 @@ import {
   type ForecastSummary,
   type ForecastWeek,
 } from '@/utils/aggregations';
-import type { Material, Stock } from '@/schemas/rawData';
-
-/** Single sheet cell after cleaning (`null` = empty). */
-type SheetCell = string | number | null | undefined;
+import type { Material } from '@/features/material/api/material.schema';
+import type { Stock } from '@/features/stock/api/stock.schema';
+import type { SheetValue } from '@/lib/google-sheets/types';
 
 // const toTrimmedString = (value: SheetCell): string => {
 //   if (value === null || value === undefined) return '';
@@ -21,8 +20,8 @@ type SheetCell = string | number | null | undefined;
 //   return Number.isFinite(parsed) ? parsed : 0;
 // };
 
-const readCell = (row: object, key: string | number): SheetCell =>
-  (row as Record<string | number, SheetCell>)[key];
+const readCell = (row: object, key: string | number): SheetValue =>
+  (row as Record<string | number, SheetValue>)[key];
 
 /** First non-empty trimmed value across candidate column names (legacy + current schema). */
 // const readFirst = (row: object, keys: string[]): string => {
@@ -152,20 +151,20 @@ export function calculateOptimumAllocation(
   // A. Kelompokkan BOM per Style & kumpulkan metadata material
   const bomMap: Record<string, BomComponent[]> = {};
   const materialMetadataMap: Record<string, MaterialMetadata> = {};
-  materialData.forEach((mat) => {
-    const modelCode = mat['R3/SKU'];
-    const materialId = mat.ID;
-    const consumption = mat.CONS ?? 0;
-    const leadTimeDays = mat['LT material'] ?? 0;
+  materialData.forEach((material) => {
+    const modelCode = material.modelCode;
+    const materialId = material.id;
+    const consumption = material.consumption ?? 0;
+    const leadTimeDays = material.leadTime ?? 0;
 
     if (!materialId) return;
 
     if (!materialMetadataMap[materialId]) {
       materialMetadataMap[materialId] = {
-        name: mat.NAMA || 'Unknown Material',
-        color: mat.COLOR || '-',
-        unit: mat.UOM || 'N/A',
-        buyer: mat.Buyer || 'NON NOMINATE',
+        name: material.name || 'Unknown Material',
+        color: material.color || '-',
+        unit: material.uom || 'N/A',
+        buyer: material.buyer || 'NON NOMINATE',
       };
     }
 
@@ -443,10 +442,10 @@ export function transformOptimumReport(
 ): OptimumRow[] {
   const weeks = FORECAST_WEEK_KEYS.filter((week) => week in report); // Extract keys once outside the loop
   return forecastData.map((fc) => {
-    const modelCode = fc['Model Code'];
+    const modelCode = fc.modelCode;
     const row: OptimumRow = {
       modelCode,
-      style: fc.Model,
+      style: fc.style,
     };
 
     weeks.forEach((week) => {

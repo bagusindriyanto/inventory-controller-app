@@ -1,9 +1,10 @@
 // src/hooks/useSolver.ts
 import { useState, useEffect, useRef } from 'react';
 import SolverWorker from '../utils/solver.worker.ts?worker';
-import type { Material, Stock } from '@/schemas/rawData';
 import type { ForecastSummary } from '@/utils/aggregations';
 import type { SolverResult, SolverWorkerResponse } from '@/utils/solver';
+import type { Material } from '@/features/material/api/material.schema';
+import type { Stock } from '@/features/stock/api/stock.schema';
 
 export function useSolver(
   forecastData: ForecastSummary[] | undefined,

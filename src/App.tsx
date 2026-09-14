@@ -1,17 +1,15 @@
 import { useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import Navbar from './components/Navbar';
-import SelectionTable from './components/selection/SelectionTable';
-import EmptySelection from './components/selection/EmptySelection';
+import SelectionTable from '@/features/selection/components/SelectionTable';
+import EmptySelection from '@/features/selection/components/EmptySelection';
 import EmptyProjections from './components/material/EmptyProjections';
 import MaterialProjections from './components/material/MaterialProjections';
 import EmptyStyles from './components/style/EmptyStyles';
 import { useBusinessSummaries } from './hooks/useBusinessSummaries';
 import { useWarehouseData } from './hooks/useMasterData';
-import {
-  calculateMaterialAvailability,
-  calculateSelectionRemaining,
-} from './utils/dataProcessor';
+import { calculateMaterialAvailability } from './utils/dataProcessor';
+import { createSelectionAnalysis } from '@/features/selection/application/createSelectionAnalysis';
 import { useSolver } from './hooks/useSolver';
 import StyleProjections from './components/style/StyleProjections';
 
@@ -29,7 +27,7 @@ export default function App() {
       selectionSummary.length &&
       orderSummary.length &&
       forecastSeasonalSummary.length
-        ? calculateSelectionRemaining(
+        ? createSelectionAnalysis(
             selectionSummary,
             orderSummary,
             forecastSeasonalSummary,

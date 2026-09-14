@@ -1,84 +1,12 @@
-import type {
-  ForecastSeasonalSummary,
-  ForecastSummary,
-  OrderSummary,
-  SelectionSummary,
-} from '@/utils/aggregations';
-import type { Material, Stock } from '@/schemas/rawData';
+import type { Material } from '@/features/material/api/material.schema';
+import type { Stock } from '@/features/stock/api/stock.schema';
+import type { ForecastSummary } from '@/utils/aggregations';
 
 /** Single sheet cell after cleaning (`null` = empty / `#N/A`-style error). */
 type SheetCell = string | number | null | undefined;
 
 const readCell = (row: object, key: string): SheetCell =>
   (row as Record<string, SheetCell>)[key];
-
-export type SelectionRemainingResult = {
-  season: string;
-  modelCode: string;
-  style: string;
-  selectionQty: number;
-  orderQty: number;
-  forecastQty: number;
-  remainingSelection: number;
-  status: 'Over-consumed' | 'Balanced' | 'Surplus';
-};
-
-/**
- * Memproses Sisa Selection
- * Formula: Selection - Order - Total Forecast
- */
-export function calculateSelectionRemaining(
-  selection: SelectionSummary[],
-  order: OrderSummary[],
-  forecast: ForecastSeasonalSummary[],
-): SelectionRemainingResult[] {
-  const results: SelectionRemainingResult[] = [];
-
-  const orderLookup = new Map<string, number>(
-    order.map((row) => [
-      JSON.stringify([row.Season, String(row['Model Code'])]),
-      row['Qty ORDER'],
-    ]),
-  );
-
-  const forecastLookup = new Map<string, number>(
-    forecast.map((row) => [
-      JSON.stringify([row.Season, String(row['Model Code'])]),
-      row.Totals,
-    ]),
-  );
-
-  selection.forEach((sel) => {
-    const season = sel.Season;
-    const modelCode = String(sel['Model Code']);
-    const style = sel.Style;
-    const sumSelection = sel['SUM of Selection'];
-
-    const key = JSON.stringify([season, modelCode]);
-    const totalOrderQty = orderLookup.get(key) ?? 0;
-    const totalForecastQty = forecastLookup.get(key) ?? 0;
-
-    const remaining = sumSelection - totalOrderQty - totalForecastQty;
-
-    results.push({
-      season,
-      modelCode,
-      style,
-      selectionQty: sumSelection,
-      orderQty: totalOrderQty,
-      forecastQty: totalForecastQty,
-      remainingSelection: remaining,
-      status:
-        remaining < 0
-          ? 'Over-consumed'
-          : remaining === 0
-            ? 'Balanced'
-            : 'Surplus',
-    });
-  });
-
-  return results;
-}
 
 export type WeeklyPoint = {
   week: string;
@@ -125,24 +53,24 @@ export function calculateMaterialAvailability(
 
   // 2. Petakan Stok Awal Material berdasarkan ID
   const stockMap: Record<string, number> = {};
-  stockData.forEach((stk) => {
-    const id = stk.ID;
+  stockData.forEach((stock) => {
+    const id = stock.id;
     if (id) {
-      stockMap[id] = stk.Total ?? 0;
+      stockMap[id] = stock.totalQty ?? 0;
     }
   });
 
   // 3. Hitung total kebutuhan material (ID) per minggu (Aggregate Demand)
   const forecastsByModel: Record<string, ForecastSummary[]> = {};
-  forecastData.forEach((fc) => {
-    const modelCode = fc['Model Code'];
+  forecastData.forEach((forecast) => {
+    const modelCode = forecast.modelCode;
 
     if (!modelCode) return;
 
     if (!forecastsByModel[modelCode]) {
       forecastsByModel[modelCode] = [];
     }
-    forecastsByModel[modelCode].push(fc);
+    forecastsByModel[modelCode].push(forecast);
   });
 
   const weeklyMaterialDemand: Record<string, Record<string, number>> = {}; // Struktur: { [materialID]: { [weekKey]: demandJumlah } }
@@ -158,21 +86,21 @@ export function calculateMaterialAvailability(
     }
   > = {}; // Menyimpan metadata buyer, leadtime, nama, dll.
 
-  materialData.forEach((mat) => {
-    const modelCode = mat['R3/SKU'];
-    const materialId = mat.ID;
-    const consumption = mat.CONS ?? 0;
-    const leadTimeDays = mat['LT material'] ?? 0;
+  materialData.forEach((material) => {
+    const modelCode = material.modelCode;
+    const materialId = material.id;
+    const consumption = material.consumption ?? 0;
+    const leadTimeDays = material.leadTime ?? 0;
 
     if (!materialId || !modelCode) return;
 
     // Simpan metadata komponen untuk referensi join tabel
     if (!materialMetadata[materialId]) {
       materialMetadata[materialId] = {
-        name: mat.NAMA || 'Unknown Material',
-        color: mat.COLOR || '-',
-        unit: mat.UOM || 'N/A',
-        buyer: mat.Buyer || 'NON NOMINATE',
+        name: material.name || 'Unknown Material',
+        color: material.color || '-',
+        unit: material.uom || 'N/A',
+        buyer: material.buyer || 'NON NOMINATE',
         leadTimeDays: leadTimeDays,
         // Allowance 3 bulan (90 hari) dikonversi ke minggu bersama dengan Lead Time produksi & transportasi
         totalLtWeeks: Math.ceil(leadTimeDays / 7),
@@ -182,9 +110,9 @@ export function calculateMaterialAvailability(
     // Cari demand forecast mingguan untuk model code ini
     const matchingForecasts = forecastsByModel[modelCode] || [];
 
-    matchingForecasts.forEach((fc) => {
+    matchingForecasts.forEach((forecast) => {
       weekKeys.forEach((week) => {
-        const forecastQty = Number(readCell(fc, week) ?? 0);
+        const forecastQty = Number(readCell(forecast, week) ?? 0);
         const materialNeeded = forecastQty * consumption;
 
         if (!weeklyMaterialDemand[materialId])

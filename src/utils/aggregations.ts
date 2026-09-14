@@ -1,148 +1,114 @@
-import type { Forecast, Order, Selection } from '@/schemas/rawData';
+import type { Forecast } from '@/features/forecast/api/forecast.schema';
+import type { Order } from '@/features/order/api/order.schema';
+import type { Selection } from '@/features/selection/api/selection.schema';
 
-export type ForecastWeek = Extract<keyof Forecast, number>;
+type Aggregators<T> = {
+  [K in keyof T]?: (current: T[K], incoming: T[K]) => T[K];
+};
 
-export const FORECAST_WEEK_KEYS = Array.from(
-  { length: 27 },
-  (_, i) => (i + 27) as ForecastWeek,
-);
+type AggregateResult<T, G extends keyof T, A extends keyof T> = {
+  [K in G]: NonNullable<T[K]>;
+} & { [K in A]: T[K] };
 
-const valueOf = (v: number | null | undefined): number =>
-  typeof v === 'number' && Number.isFinite(v) ? v : 0;
+export function groupByAggregate<
+  T extends Record<string, unknown>,
+  G extends keyof T,
+  A extends keyof T,
+>(
+  data: T[],
+  groupBy: readonly G[],
+  aggregators: Pick<Aggregators<T>, A>,
+): AggregateResult<T, G, A>[] {
+  const map = new Map<string, Pick<T, G | A>>();
 
-function groupRows<TInput, TOutput extends object>(
-  rows: TInput[],
-  keyOf: (row: TInput) => unknown[],
-  initial: () => TOutput,
-  accumulate: (acc: TOutput, row: TInput) => void,
-  keep?: (row: TInput) => boolean,
-): TOutput[] {
-  const groups = new Map<string, TOutput>();
+  for (const row of data) {
+    if (groupBy.some((field) => row[field] == null)) continue;
 
-  for (const row of rows) {
-    if (keep && !keep(row)) continue;
+    const key = JSON.stringify(groupBy.map((field) => row[field]));
 
-    const keyParts = keyOf(row);
-    if (
-      keyParts.some(
-        (part) => part === null || part === undefined || part === '',
-      )
-    ) {
+    const current = map.get(key);
+
+    if (!current) {
+      const initial = {} as Pick<T, G | A>;
+
+      for (const field of groupBy) {
+        initial[field] = row[field];
+      }
+
+      for (const field of Object.keys(aggregators) as A[]) {
+        initial[field] = structuredClone(row[field]);
+      }
+
+      map.set(key, initial);
       continue;
     }
 
-    const key = JSON.stringify(keyParts);
-    let acc = groups.get(key);
-    if (!acc) {
-      acc = initial();
-      groups.set(key, acc);
+    for (const field of Object.keys(aggregators) as A[]) {
+      const aggregate = aggregators[field];
+
+      if (aggregate) {
+        current[field] = aggregate(current[field], row[field]);
+      }
     }
-    accumulate(acc, row);
   }
 
-  return [...groups.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
-    .map(([, value]) => value);
+  return [...map.values()] as AggregateResult<T, G, A>[];
 }
 
-export type SelectionSummary = {
-  Season: string;
-  'Model Code': string;
-  Style: string;
-  'SUM of Selection': number;
+const sumNumber = (a: number | null, b: number | null): number =>
+  (a ?? 0) + (b ?? 0);
+
+const sumWeeks = (
+  current: Record<number, number | null | undefined>,
+  incoming: Record<number, number | null | undefined>,
+) => {
+  const result = { ...current };
+
+  for (const [week, value] of Object.entries(incoming)) {
+    const key = Number(week);
+
+    result[key] = (result[key] ?? 0) + (value ?? 0);
+  }
+
+  return result;
 };
 
-export function aggregateSelectionSummaries(
-  rows: Selection[],
-): SelectionSummary[] {
-  return groupRows(
-    rows,
-    (r) => [r.Season, r['Model Code'], r.Style],
-    () => ({ Season: '', 'Model Code': '', Style: '', 'SUM of Selection': 0 }),
-    (acc, r) => {
-      acc.Season = r.Season ?? '';
-      acc['Model Code'] = r['Model Code'] ?? '';
-      acc.Style = r.Style ?? '';
-      acc['SUM of Selection'] += valueOf(r['SUM of Selection']);
-    },
-    (r) => r['MTS?'] !== null && r['MTS?'] !== '',
-  );
+export function aggregateSelectionSummaries(rows: Selection[]) {
+  return groupByAggregate(rows, ['season', 'modelCode', 'style'], {
+    selectionQty: sumNumber,
+  });
 }
 
-export type OrderSummary = {
-  Season: string;
-  'Model Code': string;
-  'Qty ORDER': number;
-};
+export type SelectionSummary = ReturnType<
+  typeof aggregateSelectionSummaries
+>[number];
 
-export function aggregateOrderSummaries(rows: Order[]): OrderSummary[] {
-  return groupRows(
-    rows,
-    (r) => [r.Season, r['Model Code']],
-    () => ({ Season: '', 'Model Code': '', 'Qty ORDER': 0 }),
-    (acc, r) => {
-      acc.Season = r.Season ?? '';
-      acc['Model Code'] = r['Model Code'] ?? '';
-      acc['Qty ORDER'] += valueOf(r['Qty ORDER']);
-    },
-  );
+export function aggregateOrderSummaries(rows: Order[]) {
+  return groupByAggregate(rows, ['season', 'modelCode'], {
+    orderQty: sumNumber,
+  });
 }
 
-export type ForecastSummary = {
-  Model: string;
-  'Model Code': string;
-  Totals: number;
-  'Qty Pcs': number;
-} & Record<ForecastWeek, number>;
+export type OrderSummary = ReturnType<typeof aggregateOrderSummaries>[number];
 
-export function aggregateForecastSummaries(
-  rows: Forecast[],
-): ForecastSummary[] {
-  return groupRows(
-    rows,
-    (r) => [r.Model, r['Model Code']],
-    (): ForecastSummary => ({
-      Model: '',
-      'Model Code': '',
-      Totals: 0,
-      'Qty Pcs': 0,
-      ...(Object.fromEntries(
-        FORECAST_WEEK_KEYS.map((week) => [week, 0]),
-      ) as Record<ForecastWeek, number>),
-    }),
-    (acc, r) => {
-      acc.Model = r.Model ?? '';
-      acc['Model Code'] = r['Model Code'] ?? '';
-      acc.Totals += valueOf(r.Totals);
-      acc['Qty Pcs'] += valueOf(r['Qty Pcs']);
-      for (const week of FORECAST_WEEK_KEYS) {
-        acc[week] += valueOf(r[week]);
-      }
-    },
-    (r) => r.Season !== null && r.Model !== '#N/A',
-  );
+export function aggregateForecastSummaries(rows: Forecast[]) {
+  return groupByAggregate(rows, ['modelCode', 'style'], {
+    totalQty: sumNumber,
+    pcsQty: sumNumber,
+    weeks: sumWeeks,
+  });
 }
 
-export type ForecastSeasonalSummary = {
-  Season: string;
-  Model: string;
-  'Model Code': string;
-  Totals: number;
-};
+export type ForecastSummary = ReturnType<
+  typeof aggregateForecastSummaries
+>[number];
 
-export function aggregateForecastSeasonalSummaries(
-  rows: Forecast[],
-): ForecastSeasonalSummary[] {
-  return groupRows(
-    rows,
-    (r) => [r.Season, r.Model, r['Model Code']],
-    () => ({ Season: '', Model: '', 'Model Code': '', Totals: 0 }),
-    (acc, r) => {
-      acc.Season = r.Season ?? '';
-      acc.Model = r.Model ?? '';
-      acc['Model Code'] = r['Model Code'] ?? '';
-      acc.Totals += valueOf(r.Totals);
-    },
-    (r) => r.Model !== '#N/A',
-  );
+export function aggregateForecastSeasonalSummaries(rows: Forecast[]) {
+  return groupByAggregate(rows, ['season', 'modelCode', 'style'], {
+    totalQty: sumNumber,
+  });
 }
+
+export type ForecastSeasonalSummary = ReturnType<
+  typeof aggregateForecastSeasonalSummaries
+>[number];

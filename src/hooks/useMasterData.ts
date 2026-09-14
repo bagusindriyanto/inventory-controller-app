@@ -1,49 +1,20 @@
-import { useSheet } from './useSheet';
-import { SHEETS } from '@/config/sheetConfig';
-import {
-  ForecastSchema,
-  MaterialSchema,
-  OrderSchema,
-  SelectionSchema,
-  StockSchema,
-  type Forecast,
-  type Material,
-  type Order,
-  type Selection,
-  type Stock,
-} from '@/schemas/rawData';
+import { useFetchSelection } from '@/features/selection/api/selection.query';
+import { useFetchOrder } from '@/features/order/api/order.query';
+import { useFetchForecast } from '@/features/forecast/api/forecast.query';
+import { useFetchMaterial } from '@/features/material/api/material.query';
+import { useFetchStock } from '@/features/stock/api/stock.query';
 
 export function useBusinessData() {
-  const selection = useSheet<Selection>({
-    spreadsheetId: SHEETS.business.spreadsheetId,
-    ...SHEETS.business.selection,
-    schema: SelectionSchema,
-  });
-  const order = useSheet<Order>({
-    spreadsheetId: SHEETS.business.spreadsheetId,
-    ...SHEETS.business.order,
-    schema: OrderSchema,
-  });
-  const forecast = useSheet<Forecast>({
-    spreadsheetId: SHEETS.business.spreadsheetId,
-    ...SHEETS.business.forecast,
-    schema: ForecastSchema,
-  });
+  const selection = useFetchSelection();
+  const order = useFetchOrder();
+  const forecast = useFetchForecast();
 
   return { selection, order, forecast };
 }
 
 export function useWarehouseData() {
-  const material = useSheet<Material>({
-    spreadsheetId: SHEETS.warehouse.spreadsheetId,
-    ...SHEETS.warehouse.material,
-    schema: MaterialSchema,
-  });
-  const stock = useSheet<Stock>({
-    spreadsheetId: SHEETS.warehouse.spreadsheetId,
-    ...SHEETS.warehouse.stock,
-    schema: StockSchema,
-  });
+  const material = useFetchMaterial();
+  const stock = useFetchStock();
 
   return { material, stock };
 }

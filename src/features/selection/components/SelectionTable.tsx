@@ -2,8 +2,10 @@
 import { useState, useMemo } from 'react';
 import { AlertTriangle, CheckCircle, Search } from 'lucide-react';
 import { formatNumber } from '@/utils/numberFormatter';
-import SortIcon, { type SortDirection } from '../sort/SortIcon';
-import type { SelectionRemainingResult } from '@/utils/dataProcessor';
+import SortIcon, {
+  type SortDirection,
+} from '@/components/sort/SortIcon';
+import type { SelectionBalance } from '../domain/selection';
 
 const COLUMNS = [
   { key: 'season', label: 'Season', align: 'left' },
@@ -24,7 +26,7 @@ type SortConfig = {
 };
 
 type SelectionTableProps = {
-  data: SelectionRemainingResult[];
+  data: SelectionBalance[];
 };
 
 export default function SelectionTable({ data }: SelectionTableProps) {

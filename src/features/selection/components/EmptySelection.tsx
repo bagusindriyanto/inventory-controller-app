@@ -5,7 +5,7 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
-} from '../ui/empty';
+} from '@/components/ui/empty';
 
 export default function EmptySelection() {
   return (
