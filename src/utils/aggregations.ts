@@ -107,6 +107,8 @@ export type ForecastSummary = ReturnType<
   typeof aggregateForecastSummaries
 >[number];
 
+export type ForecastWeek = keyof Forecast['weeks'];
+
 export function aggregateForecastSeasonalSummaries(rows: Forecast[]) {
   return groupByAggregate(rows, ['season', 'modelCode', 'style'], {
     totalQty: sumNumber,
