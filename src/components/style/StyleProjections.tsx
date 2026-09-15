@@ -174,7 +174,7 @@ export default function StyleProjections({
   const report = (
     <Card>
       <CardHeader>
-        <CardTitle>Monitor Output per Style</CardTitle>
+        <CardTitle>Optimal Output per Style</CardTitle>
         <CardDescription>
           Menampilkan jumlah pcs teroptimal yang bisa diproduksi berdasarkan
           ketersediaan stok material.
@@ -190,10 +190,7 @@ export default function StyleProjections({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="sticky left-0 min-w-28 bg-card">
-                  Model Code
-                </TableHead>
-                <TableHead className="sticky left-28 min-w-52 bg-card">
+                <TableHead className="sticky left-0 min-w-52 bg-card">
                   Style
                 </TableHead>
                 <TableHead className="min-w-28 text-center">
@@ -233,14 +230,13 @@ export default function StyleProjections({
 
                 return (
                   <TableRow key={styleKey}>
-                    <TableCell className="sticky left-0 z-10 bg-card font-mono font-medium">
-                      {style.modelCode}
-                      <div className="text-xs text-muted-foreground">
-                        {style.season}
+                    <TableCell className="sticky left-0 z-10 bg-card uppercase">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-medium">{style.style}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {style.season} · {style.modelCode}
+                        </span>
                       </div>
-                    </TableCell>
-                    <TableCell className="sticky left-28 z-10 bg-card font-medium uppercase">
-                      {style.style}
                     </TableCell>
                     <TableCell className="text-center">
                       <Button
@@ -289,8 +285,10 @@ export default function StyleProjections({
                             }
                             onClick={() => selectWeek(week, styleKey, true)}
                           >
-                            <span>{formatNumber(allocation.actual)}</span>
-                            <span className="text-xs opacity-70">
+                            <span className="font-semibold tabular-nums">
+                              {formatNumber(allocation.actual)}
+                            </span>
+                            <span className="text-xs text-muted-foreground tabular-nums">
                               / {formatNumber(allocation.forecast)}
                             </span>
                           </Button>
@@ -312,7 +310,8 @@ export default function StyleProjections({
       <CardHeader>
         <CardTitle>Stok Material</CardTitle>
         <CardDescription>
-          Menampilkan stok material dan alokasinya untuk setiap minggunya.
+          Menampilkan stok ketersediaan, kebutuhan, dan alokasi material setiap
+          minggunya.
         </CardDescription>
         <CardAction className="flex items-center gap-2">
           <Button
@@ -348,10 +347,10 @@ export default function StyleProjections({
               setSelectedStyleKey(value === ALL_STYLES ? null : value)
             }
           >
-            <SelectTrigger className="w-full sm:w-90">
-              <SelectValue>
+            <SelectTrigger className="w-full sm:w-110">
+              <SelectValue className="truncate font-medium">
                 {selectedStyle
-                  ? `${selectedStyle.season} · ${selectedStyle.style} (${selectedStyle.modelCode})`
+                  ? `${selectedStyle.season} · ${selectedStyle.style}`
                   : 'Semua style'}
               </SelectValue>
             </SelectTrigger>
@@ -363,7 +362,14 @@ export default function StyleProjections({
                     key={createLookupKey(style.season, style.modelCode)}
                     value={createLookupKey(style.season, style.modelCode)}
                   >
-                    {style.season} · {style.style} ({style.modelCode})
+                    <span className="flex flex-col items-start gap-0.5 min-w-0 w-full whitespace-normal">
+                      <span className="text-sm font-medium wrap-break-word leading-tight">
+                        {style.style}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {style.season} · {style.modelCode}
+                      </span>
+                    </span>
                   </SelectItem>
                 ))}
               </SelectGroup>
@@ -389,7 +395,7 @@ export default function StyleProjections({
             <span>
               Shortage:{' '}
               {purchasePlan.shortageWeek === null
-                ? 'aman'
+                ? 'Aman'
                 : `W${purchasePlan.shortageWeek}`}
             </span>
             <span>
