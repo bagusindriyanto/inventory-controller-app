@@ -147,7 +147,9 @@ export function calculateOptimumAllocation(
   });
 
   // D. Transformasikan array stock, hanya track material yang dipakai solver
-  const currentStockTracker: Record<string, number> = {};
+  const currentStockTracker: Record<string, number> = Object.fromEntries(
+    [...usedMaterialIds].map((id) => [id, 0]),
+  );
   stockData.forEach((stock) => {
     const id = stock.id;
     if (id && usedMaterialIds.has(id)) {

@@ -1,39 +1,105 @@
-import { cn } from '@/lib/utils';
-import { formatNumber } from '@/utils/numberFormatter';
-import { PreviewCard } from '@base-ui/react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
 import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from '../ui/hover-card';
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import type { ForecastWeek } from '@/utils/aggregations';
+import { formatNumber } from '@/utils/numberFormatter';
 import type {
   MaterialStockInfo,
   RemainingStockEntry,
   SolverResult,
-  PurchasePlan,
 } from '@/utils/solver';
-import type { ForecastWeek } from '@/utils/aggregations';
 
-export type RemainingStockPayload = {
-  week: ForecastWeek;
-  remaining?: RemainingStockEntry[];
+const ALL_STYLES = 'all';
+
+type MaterialMonitorRow = {
+  id: string;
+  name: string;
+  color: string;
+  unit: string;
+  buyer: string;
+  available: number;
+  required: number;
+  allocated: number;
+  remaining: number;
+  shortage: number;
 };
 
-export type MaterialUsagePayload = {
-  week: ForecastWeek;
-  style: string;
-  materialsStock: MaterialStockInfo[];
-};
+type MaterialTotal = Omit<MaterialMonitorRow, 'available' | 'shortage'>;
 
-export type PurchasePlanPayload = PurchasePlan & {
-  style: string;
-  modelCode: string;
-};
+function getMaterialRows(
+  usages: MaterialStockInfo[],
+  remaining: RemainingStockEntry[],
+  isSingleStyle: boolean,
+): MaterialMonitorRow[] {
+  const totals = new Map<string, MaterialTotal>();
 
-const remainingCard = PreviewCard.createHandle<RemainingStockPayload>();
-const materialCard = PreviewCard.createHandle<MaterialUsagePayload>();
-const purchaseCard = PreviewCard.createHandle<PurchasePlanPayload>();
+  for (const material of usages) {
+    const current = totals.get(material.id);
+    totals.set(material.id, {
+      id: material.id,
+      name: material.name,
+      color: material.color,
+      unit: material.unit,
+      buyer: material.buyer,
+      required: (current?.required ?? 0) + material.needed,
+      allocated: (current?.allocated ?? 0) + material.actual,
+      remaining: material.remaining,
+    });
+  }
+
+  for (const material of remaining) {
+    const current = totals.get(material.id);
+    totals.set(material.id, {
+      id: material.id,
+      name: current?.name ?? material.name,
+      color: current?.color ?? material.color,
+      unit: current?.unit ?? material.unit,
+      buyer: current?.buyer ?? material.buyer,
+      required: current?.required ?? 0,
+      allocated: current?.allocated ?? 0,
+      remaining: isSingleStyle
+        ? (current?.remaining ?? material.qty)
+        : material.qty,
+    });
+  }
+
+  return [...totals.values()]
+    .map((material) => {
+      const available = material.remaining + material.allocated;
+      return {
+        ...material,
+        available,
+        shortage: Math.max(material.required - available, 0),
+      };
+    })
+    .sort((a, b) => b.shortage - a.shortage || a.name.localeCompare(b.name));
+}
 
 export type StyleProjectionsProps = {
   optimumReport: SolverResult;
@@ -42,419 +108,357 @@ export type StyleProjectionsProps = {
 export default function StyleProjections({
   optimumReport,
 }: StyleProjectionsProps) {
-  const [openRemaining, setOpenRemaining] = useState<boolean>(false);
-  const [triggerRemainingId, setTriggerRemainingId] = useState<string | null>(
+  const { weeks, styles, remainingByWeek } = optimumReport;
+  const [selectedWeek, setSelectedWeek] = useState<ForecastWeek | null>(null);
+  const [selectedModelCode, setSelectedModelCode] = useState<string | null>(
     null,
   );
+  const [searchQuery, setSearchQuery] = useState('');
+  const [shortageOnly, setShortageOnly] = useState(false);
 
-  const [open, setOpen] = useState<boolean>(false);
-  const [triggerId, setTriggerId] = useState<string | null>(null);
-
-  const [openPurchase, setOpenPurchase] = useState<boolean>(false);
-  const [triggerPurchaseId, setTriggerPurchaseId] = useState<string | null>(
-    null,
+  const activeWeek =
+    selectedWeek !== null && weeks.includes(selectedWeek)
+      ? selectedWeek
+      : (weeks[0] ?? null);
+  const selectedStyle = styles.find(
+    (style) => style.modelCode === selectedModelCode,
   );
+  const activeWeekIndex = activeWeek === null ? -1 : weeks.indexOf(activeWeek);
 
-  const handleOpenChange = (
-    isOpen: boolean,
-    eventDetails: PreviewCard.Root.ChangeEventDetails,
+  const materialRows = useMemo(() => {
+    if (activeWeek === null) return [];
+
+    const usages = selectedStyle
+      ? (selectedStyle.weeks[activeWeek]?.materialsStock ?? [])
+      : styles.flatMap(
+          (style) => style.weeks[activeWeek]?.materialsStock ?? [],
+        );
+    const remaining = selectedStyle ? [] : (remainingByWeek[activeWeek] ?? []);
+
+    return getMaterialRows(usages, remaining, selectedStyle !== undefined);
+  }, [activeWeek, remainingByWeek, selectedStyle, styles]);
+
+  const visibleMaterials = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase('id-ID');
+    return materialRows.filter((material) => {
+      const matchesSearch =
+        !query ||
+        material.name.toLocaleLowerCase('id-ID').includes(query) ||
+        material.id.toLocaleLowerCase('id-ID').includes(query) ||
+        material.buyer.toLocaleLowerCase('id-ID').includes(query);
+      return matchesSearch && (!shortageOnly || material.shortage > 0);
+    });
+  }, [materialRows, searchQuery, shortageOnly]);
+
+  const shortageCount = materialRows.filter(
+    (material) => material.shortage > 0,
+  ).length;
+  const purchasePlan = selectedStyle?.purchasePlan;
+
+  const selectWeek = (
+    week: ForecastWeek,
+    modelCode: string | null = null,
+    showMonitor = false,
   ) => {
-    setOpen(isOpen);
-    setTriggerId(eventDetails.trigger?.id ?? null);
+    setSelectedWeek(week);
+    setSelectedModelCode(modelCode);
+
+    if (showMonitor) {
+      document
+        .getElementById('material-monitor')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
-  const handleOpenRemainingChange = (
-    isOpen: boolean,
-    eventDetails: PreviewCard.Root.ChangeEventDetails,
-  ) => {
-    setOpenRemaining(isOpen);
-    setTriggerRemainingId(eventDetails.trigger?.id ?? null);
-  };
-
-  const handleOpenPurchaseChange = (
-    isOpen: boolean,
-    eventDetails: PreviewCard.Root.ChangeEventDetails,
-  ) => {
-    setOpenPurchase(isOpen);
-    setTriggerPurchaseId(eventDetails.trigger?.id ?? null);
-  };
-
-  const {
-    weeks: weeksHeader,
-    styles: tableRows,
-    remainingByWeek: remainingData,
-  } = optimumReport;
-
-  return (
-    <>
-      <div className="overflow-hidden mb-6 bg-white rounded-xl border shadow-xs border-slate-100">
-        <div className="p-5 border-b border-slate-100 bg-slate-50">
-          <div className="flex flex-col gap-3 justify-between sm:flex-row sm:items-center">
-            <div>
-              <h3 className="text-base font-bold text-slate-800">
-                Production Optimization Report
-              </h3>
-              <p className="text-xs text-slate-500">
-                Alokasi kuantitas style teroptimal berdasarkan ketersediaan
-                material. Arahkan mouse ke sel tabel untuk melihat informasi
-                detail.
-              </p>
-            </div>
-            {/* Search Input */}
-            <div className="relative w-full sm:w-64"></div>
-          </div>
+  const report = (
+    <Card>
+      <CardHeader>
+        <CardTitle>Production Optimization Report</CardTitle>
+        <CardDescription>
+          Klik minggu untuk seluruh material. Klik sel alokasi untuk detail satu
+          style.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+          <span>Aman: forecast terpenuhi</span>
+          <span>Parsial: sebagian terpenuhi</span>
+          <span>Kritis: tidak dapat diproduksi</span>
         </div>
 
-        {/* LEGENDA STATUS DI BAGIAN ATAS TABEL */}
-        <div className="p-4 flex gap-4 border-b border-slate-200 text-xs text-gray-600 justify-center bg-slate-100">
-          <span>🟢 Aman (100% Terpenuhi)</span>
-          <span>🟡 Parsial (Kurang Material)</span>
-          <span>🔴 Kritis (Material Kosong)</span>
-        </div>
+        <Table className="text-xs">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="sticky left-0 min-w-28 bg-card">
+                Model Code
+              </TableHead>
+              <TableHead className="sticky left-28 min-w-52 bg-card">
+                Style
+              </TableHead>
+              <TableHead className="min-w-28 text-center">
+                Week to Buy
+              </TableHead>
+              {weeks.map((week) => (
+                <TableHead key={week} className="min-w-24 text-center">
+                  <Button
+                    variant={
+                      activeWeek === week && selectedModelCode === null
+                        ? 'secondary'
+                        : 'ghost'
+                    }
+                    size="xs"
+                    aria-label={`Lihat seluruh material minggu ${week}`}
+                    aria-pressed={
+                      activeWeek === week && selectedModelCode === null
+                    }
+                    onClick={() => selectWeek(week, null, true)}
+                  >
+                    W{week}
+                  </Button>
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {styles.map((style) => {
+              const trigger = style.purchasePlan.orderTriggerWeek;
+              const triggerVariant =
+                trigger === 'OVERDUE'
+                  ? 'destructive'
+                  : trigger === 'No Action Needed'
+                    ? 'secondary'
+                    : 'outline';
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left border-collapse">
-            {/* HEADER TABEL */}
-            <thead>
-              <tr className="font-semibold uppercase border-b bg-slate-100 text-slate-600 border-slate-200">
-                <th
-                  scope="col"
-                  className="sticky left-0 z-10 bg-slate-100 p-3 hover:bg-slate-200 w-16"
-                >
-                  Model Code
-                </th>
-                <th
-                  scope="col"
-                  className="sticky left-16 z-10 bg-slate-100 p-3 hover:bg-slate-200 min-w-50"
-                >
-                  Style
-                </th>
-                <th
-                  scope="col"
-                  className="sticky left-[264px] z-10 bg-slate-100 p-3 hover:bg-slate-200 w-24 border-r border-slate-200 text-center"
-                >
-                  Week to Buy
-                </th>
-                {weeksHeader.map((week) => {
-                  const remaining = remainingData[week];
-                  const payload: RemainingStockPayload = { week, remaining };
-
-                  return (
-                    <th
-                      key={`th-${week}`}
-                      scope="col"
-                      className="p-3 text-center font-mono w-20"
+              return (
+                <TableRow key={`${style.modelCode}-${style.style}`}>
+                  <TableCell className="sticky left-0 z-10 bg-card font-mono font-medium">
+                    {style.modelCode}
+                  </TableCell>
+                  <TableCell className="sticky left-28 z-10 bg-card font-medium uppercase">
+                    {style.style}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Button
+                      variant={triggerVariant}
+                      size="xs"
+                      onClick={() =>
+                        selectWeek(
+                          style.purchasePlan.shortageWeek ??
+                            activeWeek ??
+                            weeks[0],
+                          style.modelCode,
+                          true,
+                        )
+                      }
                     >
-                      <HoverCardTrigger
-                        handle={remainingCard}
-                        id={`week-${week}`}
-                        payload={payload}
-                      >
-                        <span className="cursor-help">{week}</span>
-                      </HoverCardTrigger>
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
+                      {typeof trigger === 'number' ? `W${trigger}` : trigger}
+                    </Button>
+                  </TableCell>
+                  {weeks.map((week) => {
+                    const allocation = style.weeks[week];
+                    if (!allocation) {
+                      return (
+                        <TableCell key={week} className="text-center">
+                          <span className="text-muted-foreground">-</span>
+                        </TableCell>
+                      );
+                    }
 
-            {/* ISI ISI TABEL (BARIS) */}
-            <tbody className="divide-y divide-slate-100">
-              {tableRows.map((row) => (
-                <tr
-                  key={`${row.modelCode}-${row.style}`}
-                  className="hover:bg-slate-50 transition-colors"
-                >
-                  {/* Kolom Nama Style (Sticky di kiri agar jika digeser tidak hilang) */}
-                  <td className="sticky left-0 z-10 p-3 font-mono font-medium bg-slate-50 shadow-md text-slate-600 w-16">
-                    {row.modelCode}
-                  </td>
-                  <td className="sticky left-16 z-10 p-3 font-medium uppercase bg-slate-50 text-slate-700 w-50">
-                    {row.style}
-                  </td>
-                  {(() => {
-                    const plan = row.purchasePlan;
-                    const orderTrigger = plan.orderTriggerWeek;
-                    const isOverdue = orderTrigger === 'OVERDUE';
-                    const isSafe = orderTrigger === 'No Action Needed';
-                    const hasWeek = !isOverdue && !isSafe;
-
-                    const payload: PurchasePlanPayload = {
-                      style: row.style,
-                      modelCode: row.modelCode,
-                      ...plan,
-                    };
+                    const variant =
+                      allocation.status === 'UNFEASIBLE (STOP)'
+                        ? 'destructive'
+                        : allocation.status === 'PARTIAL (SHORTAGE)'
+                          ? 'outline'
+                          : 'ghost';
 
                     return (
-                      <td
-                        className={cn(
-                          'sticky left-[264px] z-10 p-3 text-center bg-slate-50 border-r border-slate-200 w-24 shadow-xs font-bold transition-colors',
-                          {
-                            'bg-red-50 text-red-600': isOverdue,
-                            'bg-emerald-50 text-emerald-600 font-medium':
-                              isSafe,
-                            'bg-amber-50 text-amber-700': hasWeek,
-                          },
-                        )}
-                      >
-                        <HoverCardTrigger
-                          handle={purchaseCard}
-                          id={`purchase-${row.modelCode}`}
-                          payload={payload}
+                      <TableCell key={week} className="text-center">
+                        <Button
+                          variant={variant}
+                          size="sm"
+                          className="h-auto w-full flex-col"
+                          aria-label={`${style.style}, minggu ${week}: alokasi ${allocation.actual} dari forecast ${allocation.forecast}`}
+                          aria-pressed={
+                            activeWeek === week &&
+                            selectedModelCode === style.modelCode
+                          }
+                          onClick={() =>
+                            selectWeek(week, style.modelCode, true)
+                          }
                         >
-                          <span className="cursor-help">{orderTrigger}</span>
-                        </HoverCardTrigger>
-                      </td>
-                    );
-                  })()}
-                  {/* Looping Kolom Minggu Berjalan */}
-                  {weeksHeader.map((week) => {
-                    const cell = row.weeks[week];
-                    const materialsStock = cell?.materialsStock ?? [];
-                    const payload: MaterialUsagePayload = {
-                      week,
-                      style: row.style,
-                      materialsStock,
-                    };
-
-                    return (
-                      <td
-                        key={`td-${week}`}
-                        className={cn('p-3 text-center font-mono bg-white', {
-                          'bg-green-100': cell?.status === 'SAFE',
-                          'bg-yellow-100':
-                            cell?.status === 'PARTIAL (SHORTAGE)',
-                          'bg-red-100': cell?.status === 'UNFEASIBLE (STOP)',
-                        })}
-                      >
-                        {!cell ? (
-                          <span className="text-gray-300">-</span>
-                        ) : (
-                          <div className="flex flex-col gap-1 items-center justify-center">
-                            <HoverCardTrigger
-                              handle={materialCard}
-                              id={`${row.modelCode}-${row.style}-${week}`}
-                              payload={payload}
-                              render={
-                                <div className="cursor-help font-semibold text-[10px] text-slate-600" />
-                              }
-                            >
-                              {formatNumber(cell?.actual)}
-                            </HoverCardTrigger>
-                            <div className="text-slate-400 text-[8px]">
-                              Forecast: {formatNumber(cell?.forecast)}
-                            </div>
-                          </div>
-                        )}
-                      </td>
+                          <span>{formatNumber(allocation.actual)}</span>
+                          <span className="text-xs opacity-70">
+                            / {formatNumber(allocation.forecast)}
+                          </span>
+                        </Button>
+                      </TableCell>
                     );
                   })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+
+  const monitor = (
+    <Card id="material-monitor" className="scroll-mt-4">
+      <CardHeader>
+        <CardTitle>Stok Material</CardTitle>
+        <CardDescription>
+          Menampilkan stok material dan alokasinya untuk setiap minggunya.
+        </CardDescription>
+        <CardAction className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label="Minggu sebelumnya"
+            disabled={activeWeekIndex <= 0}
+            onClick={() => selectWeek(weeks[activeWeekIndex - 1])}
+          >
+            <ChevronLeft data-icon="inline-start" />
+          </Button>
+          <p className="w-18 text-center">
+            {activeWeek === null ? 'Semua Week' : `W${activeWeek}`}
+          </p>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            aria-label="Minggu berikutnya"
+            disabled={
+              activeWeekIndex < 0 || activeWeekIndex >= weeks.length - 1
+            }
+            onClick={() => selectWeek(weeks[activeWeekIndex + 1])}
+          >
+            <ChevronRight data-icon="inline-start" />
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Select
+            value={selectedModelCode ?? ALL_STYLES}
+            onValueChange={(value) =>
+              setSelectedModelCode(value === ALL_STYLES ? null : value)
+            }
+          >
+            <SelectTrigger className="w-full sm:w-90">
+              <SelectValue>
+                {selectedStyle
+                  ? `${selectedStyle.style} (${selectedStyle.modelCode})`
+                  : 'Semua style'}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value={ALL_STYLES}>Semua style</SelectItem>
+                {styles.map((style) => (
+                  <SelectItem key={style.modelCode} value={style.modelCode}>
+                    {style.style} ({style.modelCode})
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <Input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Cari material, ID, atau buyer"
+            aria-label="Cari material"
+          />
+          <Button
+            variant={shortageOnly ? 'secondary' : 'outline'}
+            aria-pressed={shortageOnly}
+            onClick={() => setShortageOnly((current) => !current)}
+          >
+            Kekurangan saja ({shortageCount})
+          </Button>
         </div>
-      </div>
-      <HoverCard
-        handle={remainingCard}
-        open={openRemaining}
-        onOpenChange={handleOpenRemainingChange}
-        triggerId={triggerRemainingId}
-      >
-        {({ payload }) => (
-          <HoverCardContent side="top" className="w-72">
-            <h3 className="font-bold">Sisa Material</h3>
-            <div className="flex justify-between pb-1.5 mb-2">
-              <p className="text-xs text-muted-foreground">
-                (W{payload?.week})
-              </p>
-            </div>
-            <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-              {payload?.remaining?.map((mat) => (
-                <div
-                  key={mat.id}
-                  className="text-[10px] pb-2 border-b border-slate-300 last:border-0 last:pb-0"
-                >
-                  {/* Top Row: Name and Remaining Stock */}
-                  <div className="flex justify-between items-start gap-2">
-                    <div className="font-semibold leading-tight line-clamp-2 max-w-[160px] uppercase">
-                      {mat.name}
-                    </div>
-                    <div className="font-mono text-right">
-                      <span
-                        className={cn(
-                          mat.qty <= 0 ? 'text-red-400' : 'text-emerald-400',
-                        )}
-                      >
-                        {formatNumber(mat.qty, 2)}
-                      </span>
-                      <span className="font-bold"> {mat.unit}</span>
-                    </div>
-                  </div>
 
-                  {/* Bottom Row: ID, Color, Buyer */}
-                  <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[8px] font-mono mt-1">
-                    <span className="font-medium">{mat.id}</span>
-                    <span>•</span>
-                    <span>{mat.color}</span>
-                    <span>•</span>
-                    <span className="text-muted-foreground font-medium uppercase">
-                      {mat.buyer}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </HoverCardContent>
+        {purchasePlan && (
+          <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
+            <span>
+              Shortage:{' '}
+              {purchasePlan.shortageWeek === null
+                ? 'aman'
+                : `W${purchasePlan.shortageWeek}`}
+            </span>
+            <span>
+              Rekomendasi beli:{' '}
+              {typeof purchasePlan.orderTriggerWeek === 'number'
+                ? `W${purchasePlan.orderTriggerWeek}`
+                : purchasePlan.orderTriggerWeek}
+            </span>
+            <span>Lead time: {purchasePlan.maxLeadTimeDays} hari</span>
+          </div>
         )}
-      </HoverCard>
-      <HoverCard
-        handle={materialCard}
-        open={open}
-        onOpenChange={handleOpenChange}
-        triggerId={triggerId}
-      >
-        {({ payload }) => (
-          <HoverCardContent side="top" className="w-72">
-            <h3 className="font-bold">Material yang Digunakan</h3>
-            <div className="flex justify-between pb-1.5 mb-2">
-              <p className="text-xs text-muted-foreground truncate uppercase max-w-50">
-                {payload?.style}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                (W{payload?.week})
-              </p>
-            </div>
-            <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-              {payload?.materialsStock?.map((mat) => (
-                <div
-                  key={mat.id}
-                  className="text-[10px] pb-2 border-b border-slate-300 last:border-0 last:pb-0"
-                >
-                  {/* Top Row: Name and Remaining Stock */}
-                  <div className="flex justify-between items-start gap-2">
-                    <div className="font-semibold leading-tight line-clamp-2 max-w-[120px] uppercase">
-                      {mat.name}
-                    </div>
-                    <div className="font-mono text-right">
-                      <span
-                        className={
-                          mat.actual < mat.needed
-                            ? 'text-red-400 font-bold'
-                            : 'text-emerald-400 font-bold'
-                        }
-                      >
-                        {formatNumber(mat.actual, 2)}
-                      </span>
-                      <span>/</span>
-                      <span>{formatNumber(mat.needed, 2)}</span>
-                      <span className="font-bold"> {mat.unit}</span>
-                    </div>
-                  </div>
 
-                  {/* Bottom Row: ID, Color, Buyer */}
-                  <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[8px] font-mono mt-1">
-                    <span className="font-medium">{mat.id}</span>
-                    <span>•</span>
-                    <span>{mat.color}</span>
-                    <span>•</span>
-                    <span className="text-muted-foreground font-medium uppercase">
-                      {mat.buyer}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </HoverCardContent>
-        )}
-      </HoverCard>
-      <HoverCard
-        handle={purchaseCard}
-        open={openPurchase}
-        onOpenChange={handleOpenPurchaseChange}
-        triggerId={triggerPurchaseId}
-      >
-        {({ payload }) => {
-          const isShortageSafe = payload?.shortageWeek === null;
-
-          return (
-            <HoverCardContent side="top" className="w-72">
-              <h3 className="font-bold">Rencana Pembelian Material</h3>
-              <div className="flex justify-between pb-1.5 mb-2 border-b border-slate-200">
-                <p className="text-xs text-muted-foreground truncate uppercase max-w-[180px]">
-                  {payload?.style} ({payload?.modelCode})
-                </p>
-              </div>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Shortage Week:</span>
-                  <span
-                    className={cn(
-                      'font-semibold',
-                      isShortageSafe ? 'text-green-600' : 'text-red-600',
-                    )}
+        <div className="max-h-[60vh] overflow-auto rounded-lg border">
+          <Table>
+            <TableHeader className="sticky top-0 z-10 bg-card">
+              <TableRow>
+                <TableHead>Material</TableHead>
+                <TableHead className="text-right">Tersedia</TableHead>
+                <TableHead className="text-right">Kebutuhan</TableHead>
+                <TableHead className="text-right">Dialokasikan</TableHead>
+                <TableHead className="text-right">Sisa</TableHead>
+                <TableHead className="text-right">Kekurangan</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visibleMaterials.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="py-8 text-center text-muted-foreground"
                   >
-                    {isShortageSafe
-                      ? 'Safe (Stock Sufficient)'
-                      : payload?.shortageWeek}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Lead Time Maksimum:</span>
-                  <span className="font-semibold">
-                    {payload?.maxLeadTimeDays != null
-                      ? `${payload.maxLeadTimeDays} hari (~${payload.maxLeadTimeWeeks} minggu)`
-                      : '-'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Rekomendasi Beli:</span>
-                  <span
-                    className={cn(
-                      'font-bold px-1.5 py-0.5 rounded text-[10px]',
-                      {
-                        'bg-red-100 text-red-800':
-                          payload?.orderTriggerWeek === 'OVERDUE',
-                        'bg-emerald-100 text-emerald-800':
-                          payload?.orderTriggerWeek === 'No Action Needed',
-                        'bg-amber-100 text-amber-800':
-                          payload?.orderTriggerWeek !== 'OVERDUE' &&
-                          payload?.orderTriggerWeek !== 'No Action Needed',
-                      },
-                    )}
-                  >
-                    {payload?.orderTriggerWeek}
-                  </span>
-                </div>
-
-                {payload?.criticalMaterials &&
-                  payload.criticalMaterials.length > 0 && (
-                    <div className="pt-2 border-t border-slate-200 mt-2">
-                      <span className="font-semibold text-[10px] text-slate-500 uppercase block mb-1">
-                        Material Kritis (Lead Time Tertinggi)
-                      </span>
-                      <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
-                        {payload.criticalMaterials.map((mat) => (
-                          <div
-                            key={mat.id}
-                            className="flex justify-between text-[10px] py-0.5"
-                          >
-                            <span className="truncate max-w-[180px] font-medium text-slate-700">
-                              {mat.name}
-                            </span>
-                            <span className="text-slate-500 font-mono text-[9px]">
-                              ({mat.leadTimeDays} hari)
-                            </span>
-                          </div>
-                        ))}
+                    Tidak ada material untuk filter ini.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                visibleMaterials.map((material) => (
+                  <TableRow key={material.id}>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <span className="font-medium">{material.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {material.id} · {material.color} · {material.buyer}
+                        </span>
                       </div>
-                    </div>
-                  )}
-              </div>
-            </HoverCardContent>
-          );
-        }}
-      </HoverCard>
-    </>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-xs">
+                      {formatNumber(material.available, 2)} {material.unit}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-xs">
+                      {formatNumber(material.required, 2)} {material.unit}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-xs">
+                      {formatNumber(material.allocated, 2)} {material.unit}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-xs">
+                      {formatNumber(material.remaining, 2)} {material.unit}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-xs">
+                      {material.shortage > 0
+                        ? `${formatNumber(material.shortage, 2)} ${material.unit}`
+                        : 'Aman'}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <div className="flex flex-col gap-6">
+      {monitor}
+      {report}
+    </div>
   );
 }
