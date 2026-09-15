@@ -1,6 +1,11 @@
 // src/components/material/MaterialProjections.tsx
 import { useMemo, useState } from 'react';
-import { CalendarClock, Search, ShieldAlert, ShieldCheck } from 'lucide-react';
+import {
+  CalendarClockIcon,
+  SearchIcon,
+  ShieldAlertIcon,
+  ShieldCheckIcon,
+} from 'lucide-react';
 import { formatNumber } from '@/utils/numberFormatter';
 import type { MaterialAvailabilityResult } from '@/utils/dataProcessor';
 import SortIcon, { type SortDirection } from '../sort/SortIcon';
@@ -65,7 +70,7 @@ export default function MaterialProjections({
           </div>
           {/* Search Input */}
           <div className="relative w-full sm:w-64">
-            <Search
+            <SearchIcon
               size={14}
               className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400"
             />
@@ -123,7 +128,7 @@ export default function MaterialProjections({
               </tr>
             ) : (
               sortedData.map((proj, idx) => {
-                const isUrgent = proj.orderTriggerWeek === 'OVERDUE';
+                const isUrgent = proj.orderTriggerWeek === 'Terlambat';
                 const isSafe = proj.shortageWeek === null;
 
                 return (
@@ -154,11 +159,11 @@ export default function MaterialProjections({
                     <td className="p-3 text-center">
                       {isSafe ? (
                         <span className="px-2 py-0.5 rounded-sm bg-emerald-50 text-emerald-700 font-medium inline-flex items-center gap-1">
-                          <ShieldCheck size={12} /> Aman
+                          <ShieldCheckIcon size={12} /> Aman
                         </span>
                       ) : (
                         <span className="px-2 py-0.5 rounded-sm bg-red-50 text-red-700 font-semibold inline-flex items-center gap-1">
-                          <ShieldAlert size={12} /> {proj.shortageWeek}
+                          <ShieldAlertIcon size={12} /> {proj.shortageWeek}
                         </span>
                       )}
                     </td>
@@ -166,7 +171,7 @@ export default function MaterialProjections({
                       className={`p-3 text-center font-bold ${isUrgent ? 'text-red-700 bg-red-100 animate-pulse' : isSafe ? 'bg-slate-50 text-slate-400' : 'text-amber-700 bg-amber-50'}`}
                     >
                       <div className="flex gap-1 justify-center items-center">
-                        {!isSafe && <CalendarClock size={12} />}
+                        {!isSafe && <CalendarClockIcon size={12} />}
                         {proj.orderTriggerWeek}
                       </div>
                       {!isSafe && (

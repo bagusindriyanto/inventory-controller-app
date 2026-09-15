@@ -1,5 +1,11 @@
 import { useMemo, useState } from 'react';
-import { CheckCircleIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  CheckCircleIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CircleAlertIcon,
+  CircleXIcon,
+} from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -222,11 +228,11 @@ export default function StyleProjections({
                 const styleKey = createLookupKey(style.season, style.modelCode);
                 const trigger = style.purchasePlan.orderTriggerWeek;
                 const triggerVariant =
-                  trigger === 'OVERDUE'
+                  trigger === 'Terlambat'
                     ? 'destructive'
-                    : trigger === 'No Action Needed'
-                      ? 'secondary'
-                      : 'outline';
+                    : trigger === 'Aman'
+                      ? 'success'
+                      : 'warning';
 
                 return (
                   <TableRow key={styleKey}>
@@ -252,6 +258,13 @@ export default function StyleProjections({
                           )
                         }
                       >
+                        {trigger === 'Terlambat' ? (
+                          <CircleXIcon data-icon="inline-start" />
+                        ) : trigger === 'Aman' ? (
+                          <CheckCircleIcon data-icon="inline-start" />
+                        ) : (
+                          <CircleAlertIcon data-icon="inline-start" />
+                        )}
                         {typeof trigger === 'number' ? `W${trigger}` : trigger}
                       </Button>
                     </TableCell>
@@ -266,10 +279,10 @@ export default function StyleProjections({
                       }
 
                       const variant =
-                        allocation.status === 'UNFEASIBLE (STOP)'
+                        allocation.status === 'Tidak Cukup'
                           ? 'destructive'
-                          : allocation.status === 'PARTIAL (SHORTAGE)'
-                            ? 'outline'
+                          : allocation.status === 'Sebagian'
+                            ? 'warning'
                             : 'ghost';
 
                       return (
@@ -321,7 +334,7 @@ export default function StyleProjections({
             disabled={activeWeekIndex <= 0}
             onClick={() => selectWeek(weeks[activeWeekIndex - 1])}
           >
-            <ChevronLeft data-icon="inline-start" />
+            <ChevronLeftIcon />
           </Button>
           <p className="w-18 text-center font-semibold">
             {activeWeek === null ? 'Semua Week' : `W${activeWeek}`}
@@ -335,7 +348,7 @@ export default function StyleProjections({
             }
             onClick={() => selectWeek(weeks[activeWeekIndex + 1])}
           >
-            <ChevronRight data-icon="inline-start" />
+            <ChevronRightIcon />
           </Button>
         </CardAction>
       </CardHeader>
@@ -480,7 +493,7 @@ export default function StyleProjections({
                           <span className="text-[10px]">{material.unit}</span>
                         </Badge>
                       ) : (
-                        <Badge className="text-emerald-700 bg-emerald-50">
+                        <Badge variant="success">
                           <CheckCircleIcon data-icon="inline-start" />
                           Aman
                         </Badge>

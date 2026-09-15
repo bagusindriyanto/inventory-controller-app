@@ -1,4 +1,4 @@
-import { Layers } from 'lucide-react';
+import { LayersIcon } from 'lucide-react';
 import RefreshToggle from './RefreshToggle';
 
 export default function Navbar() {
@@ -7,7 +7,7 @@ export default function Navbar() {
       <div className="flex justify-between items-center mx-auto max-w-7xl">
         <div className="flex gap-3 items-center">
           <div className="p-2 rounded-lg bg-primary">
-            <Layers size={22} className="text-primary-foreground" />
+            <LayersIcon size={22} className="text-primary-foreground" />
           </div>
           <div>
             <h1 className="text-lg font-bold tracking-tight">

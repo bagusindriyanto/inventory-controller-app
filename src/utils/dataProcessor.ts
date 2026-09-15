@@ -17,7 +17,7 @@ export type MaterialProjectionResult = {
   initialStock: number;
   totalLtWeeks: number;
   shortageWeek: ForecastWeek | null;
-  orderTriggerWeek: ForecastWeek | 'OVERDUE' | 'No Action Needed';
+  orderTriggerWeek: ForecastWeek | 'Terlambat' | 'Aman';
   timeline: WeeklyPoint[];
 };
 
@@ -122,8 +122,7 @@ export function calculateMaterialAvailability(
 
     const weeklyTimeline: WeeklyPoint[] = [];
     let shortageWeek: ForecastWeek | null = null;
-    let orderTriggerWeek: MaterialProjectionResult['orderTriggerWeek'] =
-      'No Action Needed';
+    let orderTriggerWeek: MaterialProjectionResult['orderTriggerWeek'] = 'Aman';
 
     weeks.forEach((week, index) => {
       const demand = weeklyMaterialDemand[matId]?.[week] || 0;
@@ -144,7 +143,7 @@ export function calculateMaterialAvailability(
         if (triggerIndex >= 0) {
           orderTriggerWeek = weeks[triggerIndex];
         } else {
-          orderTriggerWeek = 'OVERDUE'; // Jika minus, berarti window pemesanan aman sudah terlewati
+          orderTriggerWeek = 'Terlambat'; // Jika minus, berarti window pemesanan aman sudah terlewati
         }
       }
     });
@@ -192,7 +191,7 @@ function roundTo4Digit(num: number) {
 }
 
 function getPriority(value: MaterialProjectionResult['orderTriggerWeek']) {
-  if (value === 'OVERDUE') return 0;
-  if (value === 'No Action Needed') return 2;
+  if (value === 'Terlambat') return 0;
+  if (value === 'Aman') return 2;
   return 1; // untuk nilai lain jika ada
 }

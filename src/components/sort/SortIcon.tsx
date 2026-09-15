@@ -1,10 +1,11 @@
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
+import { ArrowDownIcon, ArrowUpIcon, ArrowUpDownIcon } from 'lucide-react';
 
 export type SortDirection = 'asc' | 'desc' | null;
 
 export default function SortIcon({ direction }: { direction: SortDirection }) {
-  if (direction === 'asc') return <ArrowUp size={12} className="inline ml-1" />;
+  if (direction === 'asc')
+    return <ArrowUpIcon size={12} className="inline ml-1" />;
   if (direction === 'desc')
-    return <ArrowDown size={12} className="inline ml-1" />;
-  return <ArrowUpDown size={12} className="inline ml-1 opacity-30" />;
+    return <ArrowDownIcon size={12} className="inline ml-1" />;
+  return <ArrowUpDownIcon size={12} className="inline ml-1 opacity-30" />;
 }

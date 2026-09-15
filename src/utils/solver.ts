@@ -6,7 +6,7 @@ import type { Stock } from '@/features/stock/api/stock.schema';
 import type { ForecastSeasonalSummary, ForecastWeek } from './aggregations';
 import { createLookupKey } from './createLookupKey.ts';
 
-export type SolverStatus = 'SAFE' | 'PARTIAL (SHORTAGE)' | 'UNFEASIBLE (STOP)';
+export type SolverStatus = 'Aman' | 'Sebagian' | 'Tidak Cukup';
 
 export type MaterialMetadata = {
   name: string;
@@ -67,7 +67,7 @@ export type PurchasePlan = {
   maxLeadTimeDays: number;
   maxLeadTimeWeeks: number;
   shortageWeek: ForecastWeek | null;
-  orderTriggerWeek: ForecastWeek | 'OVERDUE' | 'No Action Needed';
+  orderTriggerWeek: ForecastWeek | 'Terlambat' | 'Aman';
   criticalMaterials: CriticalMaterial[];
 };
 
@@ -233,9 +233,9 @@ export function calculateOptimumAllocation(
       const solvedValue = solution[key];
       const actualAllocated = typeof solvedValue === 'number' ? solvedValue : 0;
 
-      let status: SolverStatus = 'SAFE';
-      if (actualAllocated === 0) status = 'UNFEASIBLE (STOP)';
-      else if (actualAllocated < forecastQty) status = 'PARTIAL (SHORTAGE)';
+      let status: SolverStatus = 'Aman';
+      if (actualAllocated === 0) status = 'Tidak Cukup';
+      else if (actualAllocated < forecastQty) status = 'Sebagian';
 
       const components = bomMap[key] ?? [];
       const materialsStock = components
@@ -332,14 +332,14 @@ export function calculateOptimumAllocation(
 
     // 2. Scan shortage week — minggu pertama status bukan SAFE
     let shortageWeek: ForecastWeek | null = null;
-    let orderTriggerWeek: ForecastWeek | 'OVERDUE' | null = null;
+    let orderTriggerWeek: ForecastWeek | 'Terlambat' | 'Aman' = 'Aman';
 
     for (let i = 0; i < weekKeys.length; i++) {
       const week = weekKeys[i];
       const weekReport = simulationReport[week]?.[key];
       if (!weekReport) continue;
 
-      if (weekReport.status !== 'SAFE') {
+      if (weekReport.status !== 'Aman') {
         shortageWeek = week;
 
         // 3. Hitung mundur order trigger berdasarkan max lead time
@@ -347,7 +347,7 @@ export function calculateOptimumAllocation(
         if (triggerIndex >= 0) {
           orderTriggerWeek = weekKeys[triggerIndex];
         } else {
-          orderTriggerWeek = 'OVERDUE';
+          orderTriggerWeek = 'Terlambat';
         }
         break;
       }
@@ -368,7 +368,7 @@ export function calculateOptimumAllocation(
         maxLeadTimeDays: maxLtDays,
         maxLeadTimeWeeks: maxLtWeeks,
         shortageWeek,
-        orderTriggerWeek: orderTriggerWeek ?? 'No Action Needed',
+        orderTriggerWeek: orderTriggerWeek ?? 'Aman',
         criticalMaterials,
       },
     };

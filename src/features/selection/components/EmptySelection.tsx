@@ -1,4 +1,4 @@
-import { SearchX } from 'lucide-react';
+import { SearchXIcon } from 'lucide-react';
 import {
   Empty,
   EmptyDescription,
@@ -12,7 +12,7 @@ export default function EmptySelection() {
     <Empty className="border border-dashed">
       <EmptyHeader className="max-w-md">
         <EmptyMedia variant="icon">
-          <SearchX />
+          <SearchXIcon />
         </EmptyMedia>
         <EmptyTitle>Sisa Selection Tidak Tersedia</EmptyTitle>
         <EmptyDescription>

@@ -1,10 +1,8 @@
 // src/components/SelectionTable.jsx
 import { useState, useMemo } from 'react';
-import { AlertTriangle, CheckCircle, Search } from 'lucide-react';
+import { AlertTriangleIcon, CheckCircleIcon, SearchIcon } from 'lucide-react';
 import { formatNumber } from '@/utils/numberFormatter';
-import SortIcon, {
-  type SortDirection,
-} from '@/components/sort/SortIcon';
+import SortIcon, { type SortDirection } from '@/components/sort/SortIcon';
 import type { SelectionBalance } from '../domain/selection';
 
 const COLUMNS = [
@@ -98,7 +96,7 @@ export default function SelectionTable({ data }: SelectionTableProps) {
           </div>
           {/* Search Input */}
           <div className="relative w-full sm:w-64">
-            <Search
+            <SearchIcon
               size={14}
               className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400"
             />
@@ -184,11 +182,11 @@ export default function SelectionTable({ data }: SelectionTableProps) {
                   <td className="p-3 text-center">
                     {row.remainingSelection < 0 ? (
                       <span className="inline-flex gap-1 items-center px-2 py-1 font-medium text-red-700 bg-red-50 rounded-sm">
-                        <AlertTriangle size={12} /> Over-Consumed
+                        <AlertTriangleIcon size={12} /> Over-Consumed
                       </span>
                     ) : (
                       <span className="inline-flex gap-1 items-center px-2 py-1 font-medium text-emerald-700 bg-emerald-50 rounded-sm">
-                        <CheckCircle size={12} /> Aman
+                        <CheckCircleIcon size={12} /> Aman
                       </span>
                     )}
                   </td>
