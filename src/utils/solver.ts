@@ -3,7 +3,8 @@ import type { Model as LPModel, SolveResult } from 'javascript-lp-solver';
 
 import type { Material } from '@/features/material/api/material.schema';
 import type { Stock } from '@/features/stock/api/stock.schema';
-import type { ForecastSummary, ForecastWeek } from './aggregations';
+import type { ForecastSeasonalSummary, ForecastWeek } from './aggregations';
+import { createLookupKey } from './createLookupKey.ts';
 
 export type SolverStatus = 'SAFE' | 'PARTIAL (SHORTAGE)' | 'UNFEASIBLE (STOP)';
 
@@ -21,7 +22,9 @@ type BomComponent = {
 };
 
 type NormalizedForecast = {
-  raw: ForecastSummary;
+  raw: ForecastSeasonalSummary;
+  key: string;
+  season: string;
   modelCode: string;
   style: string;
 };
@@ -69,6 +72,7 @@ export type PurchasePlan = {
 };
 
 export type StyleProjection = {
+  season: string;
   modelCode: string;
   style: string;
   purchasePlan: PurchasePlan;
@@ -82,7 +86,7 @@ export type SolverResult = {
 };
 
 export type SolverWorkerRequest = {
-  forecastData: ForecastSummary[];
+  forecastData: ForecastSeasonalSummary[];
   materialData: Material[];
   stockData: Stock[];
 };
@@ -92,14 +96,15 @@ export type SolverWorkerResponse =
   | { success: false; error: string };
 
 export function calculateOptimumAllocation(
-  forecastData: ForecastSummary[],
+  forecastData: ForecastSeasonalSummary[],
   materialData: Material[],
   stockData: Stock[],
 ): SolverResult {
-  // A. Kelompokkan BOM per Style & kumpulkan metadata material
+  // A. Kelompokkan BOM per season & model code dan kumpulkan metadata material
   const bomMap: Record<string, BomComponent[]> = {};
   const materialMetadataMap: Record<string, MaterialMetadata> = {};
   materialData.forEach((material) => {
+    const season = material.season;
     const modelCode = material.modelCode;
     const materialId = material.id;
     const consumption = material.consumption ?? 0;
@@ -116,33 +121,37 @@ export function calculateOptimumAllocation(
       };
     }
 
-    if (!modelCode) return;
+    if (!season || !modelCode) return;
 
-    if (!bomMap[modelCode]) bomMap[modelCode] = [];
-    bomMap[modelCode].push({ id: materialId, consumption, leadTimeDays });
+    const key = createLookupKey(season, modelCode);
+    if (!bomMap[key]) bomMap[key] = [];
+    bomMap[key].push({ id: materialId, consumption, leadTimeDays });
   });
 
   // B. Kumpulkan semua material ID yang dipakai di BOM & ada di forecast
-  const forecastModelCodes = new Set<string>();
+  const forecastKeys = new Set<string>();
   // C. Pre-normalize Forecast Data sekali di awal (Mengurangi string overhead & loop tunggal)
   const normalizedForecasts: NormalizedForecast[] = [];
   forecastData.forEach((forecast) => {
     const modelCode = forecast.modelCode;
     const style = forecast.style;
-    if (!modelCode && !style) return;
+    const season = forecast.season;
 
-    forecastModelCodes.add(modelCode);
+    const key = createLookupKey(season, modelCode);
+    forecastKeys.add(key);
 
     normalizedForecasts.push({
       raw: forecast,
+      key,
+      season,
       modelCode,
       style,
     });
   });
 
   const usedMaterialIds = new Set<string>();
-  Object.entries(bomMap).forEach(([modelCode, components]) => {
-    if (!forecastModelCodes.has(modelCode)) return;
+  Object.entries(bomMap).forEach(([key, components]) => {
+    if (!forecastKeys.has(key)) return;
     components.forEach((component) => usedMaterialIds.add(component.id));
   });
 
@@ -158,9 +167,13 @@ export function calculateOptimumAllocation(
   });
 
   // E. Dapatkan daftar minggu
-  const weekKeys: ForecastWeek[] = Object.keys(
-    forecastData[0]?.weeks ?? {},
-  ).map(Number);
+  const weekKeys: ForecastWeek[] = [
+    ...new Set(
+      forecastData.flatMap((forecast) =>
+        Object.keys(forecast.weeks).map(Number),
+      ),
+    ),
+  ].sort((a, b) => a - b);
 
   const simulationReport: Record<ForecastWeek, Record<string, Allocation>> = {};
   const remainingStockByWeek: Record<ForecastWeek, RemainingStockEntry[]> = {};
@@ -187,12 +200,12 @@ export function calculateOptimumAllocation(
       const forecastQty = forecast.raw.weeks[currentWeek] ?? 0;
       if (forecastQty <= 0) return; // Lewati jika tidak ada target
 
-      const modelCode = forecast.modelCode;
-      const components = bomMap[modelCode] ?? [];
+      const key = forecast.key;
+      const components = bomMap[key] ?? [];
 
       // Fungsi Tujuan: Memaksimalkan total volume produksi
-      variables[modelCode] = { output: 1 };
-      ints[modelCode] = 1;
+      variables[key] = { output: 1 };
+      ints[key] = 1;
 
       // Hubungkan koefisien pemakaian material (BOM) ke dalam model solver
       components.forEach((component) => {
@@ -201,12 +214,12 @@ export function calculateOptimumAllocation(
             max: currentStockTracker[component.id] ?? 0,
           };
         }
-        variables[modelCode][component.id] = component.consumption;
+        variables[key][component.id] = component.consumption;
       });
       // Kendala Batas Atas: forecast minggu ini
-      const capConstraintKey = `max_forecast_${modelCode}`;
+      const capConstraintKey = `max_forecast_${key}`;
       constraints[capConstraintKey] = { max: forecastQty };
-      variables[modelCode][capConstraintKey] = 1;
+      variables[key][capConstraintKey] = 1;
     });
 
     // 2. JALANKAN METODE SIMPLEX SOLVER
@@ -216,15 +229,15 @@ export function calculateOptimumAllocation(
     normalizedForecasts.forEach((forecast) => {
       const forecastQty = forecast.raw.weeks[currentWeek] ?? 0;
       if (forecastQty <= 0) return;
-      const modelCode = forecast.modelCode;
-      const solvedValue = solution[modelCode];
+      const key = forecast.key;
+      const solvedValue = solution[key];
       const actualAllocated = typeof solvedValue === 'number' ? solvedValue : 0;
 
       let status: SolverStatus = 'SAFE';
       if (actualAllocated === 0) status = 'UNFEASIBLE (STOP)';
       else if (actualAllocated < forecastQty) status = 'PARTIAL (SHORTAGE)';
 
-      const components = bomMap[modelCode] ?? [];
+      const components = bomMap[key] ?? [];
       const materialsStock = components
         .map((component) => {
           const forecastMaterialNeeded = forecastQty * component.consumption;
@@ -260,7 +273,7 @@ export function calculateOptimumAllocation(
           (a, b) => a.remaining - b.remaining || a.name.localeCompare(b.name),
         );
 
-      simulationReport[currentWeek]![modelCode] = {
+      simulationReport[currentWeek]![key] = {
         forecast: forecastQty,
         actual: actualAllocated,
         status: status,
@@ -291,8 +304,8 @@ export function calculateOptimumAllocation(
 
   // --- KALKULASI SHORTAGE WEEK & PURCHASE PLAN PER STYLE ---
   const styles = normalizedForecasts.map((forecast): StyleProjection => {
-    const modelCode = forecast.modelCode;
-    const components = bomMap[modelCode] ?? [];
+    const key = forecast.key;
+    const components = bomMap[key] ?? [];
 
     // 1. Single-pass: hitung maxLeadTime & kumpulkan critical materials
     let maxLtDays = 0;
@@ -323,7 +336,7 @@ export function calculateOptimumAllocation(
 
     for (let i = 0; i < weekKeys.length; i++) {
       const week = weekKeys[i];
-      const weekReport = simulationReport[week]?.[modelCode];
+      const weekReport = simulationReport[week]?.[key];
       if (!weekReport) continue;
 
       if (weekReport.status !== 'SAFE') {
@@ -342,12 +355,13 @@ export function calculateOptimumAllocation(
 
     const weeks: StyleProjection['weeks'] = {};
     for (const week of weekKeys) {
-      const allocation = simulationReport[week]?.[modelCode];
+      const allocation = simulationReport[week]?.[key];
       if (allocation) weeks[week] = allocation;
     }
 
     return {
-      modelCode,
+      season: forecast.season,
+      modelCode: forecast.modelCode,
       style: forecast.style,
       weeks,
       purchasePlan: {

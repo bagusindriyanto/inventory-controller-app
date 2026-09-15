@@ -112,6 +112,7 @@ export type ForecastWeek = keyof Forecast['weeks'];
 export function aggregateForecastSeasonalSummaries(rows: Forecast[]) {
   return groupByAggregate(rows, ['season', 'modelCode', 'style'], {
     totalQty: sumNumber,
+    weeks: sumByKey,
   });
 }
 

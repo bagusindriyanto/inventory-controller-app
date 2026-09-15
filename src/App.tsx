@@ -53,7 +53,7 @@ export default function App() {
     result: optimumReport,
     loading: solverLoading,
     error: solverError,
-  } = useSolver(forecastSummary, material.data, stock.data);
+  } = useSolver(forecastSeasonalSummary, material.data, stock.data);
 
   return (
     <div className="flex flex-col min-h-screen">

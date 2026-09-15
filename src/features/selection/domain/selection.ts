@@ -3,6 +3,7 @@ import type {
   OrderSummary,
   SelectionSummary,
 } from '@/utils/aggregations';
+import { createLookupKey } from '@/utils/createLookupKey';
 
 export type SelectionBalanceStatus = 'Over-consumed' | 'Balanced' | 'Surplus';
 
@@ -16,9 +17,6 @@ export type SelectionBalance = {
   remainingSelection: number;
   status: SelectionBalanceStatus;
 };
-
-const createLookupKey = (season: string, modelCode: string): string =>
-  JSON.stringify([season, modelCode]);
 
 const getStatus = (remaining: number): SelectionBalanceStatus => {
   if (remaining < 0) return 'Over-consumed';

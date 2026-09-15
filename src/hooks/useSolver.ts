@@ -1,13 +1,13 @@
 // src/hooks/useSolver.ts
 import { useState, useEffect, useRef } from 'react';
 import SolverWorker from '../utils/solver.worker.ts?worker';
-import type { ForecastSummary } from '@/utils/aggregations';
+import type { ForecastSeasonalSummary } from '@/utils/aggregations';
 import type { SolverResult, SolverWorkerResponse } from '@/utils/solver';
 import type { Material } from '@/features/material/api/material.schema';
 import type { Stock } from '@/features/stock/api/stock.schema';
 
 export function useSolver(
-  forecastData: ForecastSummary[] | undefined,
+  forecastData: ForecastSeasonalSummary[] | undefined,
   materialData: Material[] | undefined,
   stockData: Stock[] | undefined,
 ) {
@@ -17,7 +17,7 @@ export function useSolver(
   // callbacks, so `loading` below can be derived during render instead of
   // being synced via setState inside the effect.
   const [settledInputs, setSettledInputs] = useState<
-    readonly [ForecastSummary[], Material[], Stock[]] | null
+    readonly [ForecastSeasonalSummary[], Material[], Stock[]] | null
   >(null);
   const workerRef = useRef<Worker | null>(null);
 

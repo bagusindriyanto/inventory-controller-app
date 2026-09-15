@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { CheckCircleIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -29,11 +29,13 @@ import {
 } from '@/components/ui/table';
 import type { ForecastWeek } from '@/utils/aggregations';
 import { formatNumber } from '@/utils/numberFormatter';
+import { createLookupKey } from '@/utils/createLookupKey';
 import type {
   MaterialStockInfo,
   RemainingStockEntry,
   SolverResult,
 } from '@/utils/solver';
+import { Badge } from '@/components/ui/badge';
 
 const ALL_STYLES = 'all';
 
@@ -110,9 +112,7 @@ export default function StyleProjections({
 }: StyleProjectionsProps) {
   const { weeks, styles, remainingByWeek } = optimumReport;
   const [selectedWeek, setSelectedWeek] = useState<ForecastWeek | null>(null);
-  const [selectedModelCode, setSelectedModelCode] = useState<string | null>(
-    null,
-  );
+  const [selectedStyleKey, setSelectedStyleKey] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [shortageOnly, setShortageOnly] = useState(false);
 
@@ -121,7 +121,8 @@ export default function StyleProjections({
       ? selectedWeek
       : (weeks[0] ?? null);
   const selectedStyle = styles.find(
-    (style) => style.modelCode === selectedModelCode,
+    (style) =>
+      createLookupKey(style.season, style.modelCode) === selectedStyleKey,
   );
   const activeWeekIndex = activeWeek === null ? -1 : weeks.indexOf(activeWeek);
 
@@ -157,11 +158,11 @@ export default function StyleProjections({
 
   const selectWeek = (
     week: ForecastWeek,
-    modelCode: string | null = null,
+    styleKey: string | null = null,
     showMonitor = false,
   ) => {
     setSelectedWeek(week);
-    setSelectedModelCode(modelCode);
+    setSelectedStyleKey(styleKey);
 
     if (showMonitor) {
       document
@@ -173,132 +174,135 @@ export default function StyleProjections({
   const report = (
     <Card>
       <CardHeader>
-        <CardTitle>Production Optimization Report</CardTitle>
+        <CardTitle>Monitor Output per Style</CardTitle>
         <CardDescription>
-          Klik minggu untuk seluruh material. Klik sel alokasi untuk detail satu
-          style.
+          Menampilkan jumlah pcs teroptimal yang bisa diproduksi berdasarkan
+          ketersediaan stok material.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-          <span>Aman: forecast terpenuhi</span>
-          <span>Parsial: sebagian terpenuhi</span>
-          <span>Kritis: tidak dapat diproduksi</span>
+          Klik header minggu untuk melihat detail seluruh style. Klik cell Week
+          to Buy untuk melihat detail satu style.
         </div>
 
-        <Table className="text-xs">
-          <TableHeader>
-            <TableRow>
-              <TableHead className="sticky left-0 min-w-28 bg-card">
-                Model Code
-              </TableHead>
-              <TableHead className="sticky left-28 min-w-52 bg-card">
-                Style
-              </TableHead>
-              <TableHead className="min-w-28 text-center">
-                Week to Buy
-              </TableHead>
-              {weeks.map((week) => (
-                <TableHead key={week} className="min-w-24 text-center">
-                  <Button
-                    variant={
-                      activeWeek === week && selectedModelCode === null
-                        ? 'secondary'
-                        : 'ghost'
-                    }
-                    size="xs"
-                    aria-label={`Lihat seluruh material minggu ${week}`}
-                    aria-pressed={
-                      activeWeek === week && selectedModelCode === null
-                    }
-                    onClick={() => selectWeek(week, null, true)}
-                  >
-                    W{week}
-                  </Button>
+        <div className="max-h-[60vh] overflow-auto rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="sticky left-0 min-w-28 bg-card">
+                  Model Code
                 </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {styles.map((style) => {
-              const trigger = style.purchasePlan.orderTriggerWeek;
-              const triggerVariant =
-                trigger === 'OVERDUE'
-                  ? 'destructive'
-                  : trigger === 'No Action Needed'
-                    ? 'secondary'
-                    : 'outline';
-
-              return (
-                <TableRow key={`${style.modelCode}-${style.style}`}>
-                  <TableCell className="sticky left-0 z-10 bg-card font-mono font-medium">
-                    {style.modelCode}
-                  </TableCell>
-                  <TableCell className="sticky left-28 z-10 bg-card font-medium uppercase">
-                    {style.style}
-                  </TableCell>
-                  <TableCell className="text-center">
+                <TableHead className="sticky left-28 min-w-52 bg-card">
+                  Style
+                </TableHead>
+                <TableHead className="min-w-28 text-center">
+                  Week to Buy
+                </TableHead>
+                {weeks.map((week) => (
+                  <TableHead key={week} className="min-w-24 text-center">
                     <Button
-                      variant={triggerVariant}
-                      size="xs"
-                      onClick={() =>
-                        selectWeek(
-                          style.purchasePlan.shortageWeek ??
-                            activeWeek ??
-                            weeks[0],
-                          style.modelCode,
-                          true,
-                        )
+                      variant={
+                        activeWeek === week && selectedStyleKey === null
+                          ? 'secondary'
+                          : 'ghost'
                       }
+                      size="xs"
+                      aria-label={`Lihat seluruh material minggu ${week}`}
+                      aria-pressed={
+                        activeWeek === week && selectedStyleKey === null
+                      }
+                      onClick={() => selectWeek(week, null, true)}
                     >
-                      {typeof trigger === 'number' ? `W${trigger}` : trigger}
+                      W{week}
                     </Button>
-                  </TableCell>
-                  {weeks.map((week) => {
-                    const allocation = style.weeks[week];
-                    if (!allocation) {
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {styles.map((style) => {
+                const styleKey = createLookupKey(style.season, style.modelCode);
+                const trigger = style.purchasePlan.orderTriggerWeek;
+                const triggerVariant =
+                  trigger === 'OVERDUE'
+                    ? 'destructive'
+                    : trigger === 'No Action Needed'
+                      ? 'secondary'
+                      : 'outline';
+
+                return (
+                  <TableRow key={styleKey}>
+                    <TableCell className="sticky left-0 z-10 bg-card font-mono font-medium">
+                      {style.modelCode}
+                      <div className="text-xs text-muted-foreground">
+                        {style.season}
+                      </div>
+                    </TableCell>
+                    <TableCell className="sticky left-28 z-10 bg-card font-medium uppercase">
+                      {style.style}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        variant={triggerVariant}
+                        size="xs"
+                        onClick={() =>
+                          selectWeek(
+                            style.purchasePlan.shortageWeek ??
+                              activeWeek ??
+                              weeks[0],
+                            styleKey,
+                            true,
+                          )
+                        }
+                      >
+                        {typeof trigger === 'number' ? `W${trigger}` : trigger}
+                      </Button>
+                    </TableCell>
+                    {weeks.map((week) => {
+                      const allocation = style.weeks[week];
+                      if (!allocation) {
+                        return (
+                          <TableCell key={week} className="text-center">
+                            <span className="text-muted-foreground">-</span>
+                          </TableCell>
+                        );
+                      }
+
+                      const variant =
+                        allocation.status === 'UNFEASIBLE (STOP)'
+                          ? 'destructive'
+                          : allocation.status === 'PARTIAL (SHORTAGE)'
+                            ? 'outline'
+                            : 'ghost';
+
                       return (
                         <TableCell key={week} className="text-center">
-                          <span className="text-muted-foreground">-</span>
+                          <Button
+                            variant={variant}
+                            size="sm"
+                            className="h-auto w-full flex-col"
+                            aria-label={`${style.season}, ${style.style}, minggu ${week}: alokasi ${allocation.actual} dari forecast ${allocation.forecast}`}
+                            aria-pressed={
+                              activeWeek === week &&
+                              selectedStyleKey === styleKey
+                            }
+                            onClick={() => selectWeek(week, styleKey, true)}
+                          >
+                            <span>{formatNumber(allocation.actual)}</span>
+                            <span className="text-xs opacity-70">
+                              / {formatNumber(allocation.forecast)}
+                            </span>
+                          </Button>
                         </TableCell>
                       );
-                    }
-
-                    const variant =
-                      allocation.status === 'UNFEASIBLE (STOP)'
-                        ? 'destructive'
-                        : allocation.status === 'PARTIAL (SHORTAGE)'
-                          ? 'outline'
-                          : 'ghost';
-
-                    return (
-                      <TableCell key={week} className="text-center">
-                        <Button
-                          variant={variant}
-                          size="sm"
-                          className="h-auto w-full flex-col"
-                          aria-label={`${style.style}, minggu ${week}: alokasi ${allocation.actual} dari forecast ${allocation.forecast}`}
-                          aria-pressed={
-                            activeWeek === week &&
-                            selectedModelCode === style.modelCode
-                          }
-                          onClick={() =>
-                            selectWeek(week, style.modelCode, true)
-                          }
-                        >
-                          <span>{formatNumber(allocation.actual)}</span>
-                          <span className="text-xs opacity-70">
-                            / {formatNumber(allocation.forecast)}
-                          </span>
-                        </Button>
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                    })}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   );
@@ -320,7 +324,7 @@ export default function StyleProjections({
           >
             <ChevronLeft data-icon="inline-start" />
           </Button>
-          <p className="w-18 text-center">
+          <p className="w-18 text-center font-semibold">
             {activeWeek === null ? 'Semua Week' : `W${activeWeek}`}
           </p>
           <Button
@@ -339,15 +343,15 @@ export default function StyleProjections({
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-col gap-2 sm:flex-row">
           <Select
-            value={selectedModelCode ?? ALL_STYLES}
+            value={selectedStyleKey ?? ALL_STYLES}
             onValueChange={(value) =>
-              setSelectedModelCode(value === ALL_STYLES ? null : value)
+              setSelectedStyleKey(value === ALL_STYLES ? null : value)
             }
           >
             <SelectTrigger className="w-full sm:w-90">
               <SelectValue>
                 {selectedStyle
-                  ? `${selectedStyle.style} (${selectedStyle.modelCode})`
+                  ? `${selectedStyle.season} · ${selectedStyle.style} (${selectedStyle.modelCode})`
                   : 'Semua style'}
               </SelectValue>
             </SelectTrigger>
@@ -355,8 +359,11 @@ export default function StyleProjections({
               <SelectGroup>
                 <SelectItem value={ALL_STYLES}>Semua style</SelectItem>
                 {styles.map((style) => (
-                  <SelectItem key={style.modelCode} value={style.modelCode}>
-                    {style.style} ({style.modelCode})
+                  <SelectItem
+                    key={createLookupKey(style.season, style.modelCode)}
+                    value={createLookupKey(style.season, style.modelCode)}
+                  >
+                    {style.season} · {style.style} ({style.modelCode})
                   </SelectItem>
                 ))}
               </SelectGroup>
@@ -404,7 +411,7 @@ export default function StyleProjections({
                 <TableHead className="text-right">Kebutuhan</TableHead>
                 <TableHead className="text-right">Dialokasikan</TableHead>
                 <TableHead className="text-right">Sisa</TableHead>
-                <TableHead className="text-right">Kekurangan</TableHead>
+                <TableHead className="text-center">Kekurangan</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -429,21 +436,49 @@ export default function StyleProjections({
                       </div>
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-xs">
-                      {formatNumber(material.available, 2)} {material.unit}
+                      <span className="font-semibold">
+                        {formatNumber(material.available, 2)}
+                      </span>
+                      <span className="ml-1 text-muted-foreground text-[10px]">
+                        {material.unit}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-xs">
-                      {formatNumber(material.required, 2)} {material.unit}
+                      <span className="font-semibold">
+                        {formatNumber(material.required, 2)}
+                      </span>
+                      <span className="ml-1 text-muted-foreground text-[10px]">
+                        {material.unit}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-xs">
-                      {formatNumber(material.allocated, 2)} {material.unit}
+                      <span className="font-semibold">
+                        {formatNumber(material.allocated, 2)}
+                      </span>
+                      <span className="ml-1 text-muted-foreground text-[10px]">
+                        {material.unit}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-xs">
-                      {formatNumber(material.remaining, 2)} {material.unit}
+                      <span className="font-semibold">
+                        {formatNumber(material.remaining, 2)}
+                      </span>
+                      <span className="ml-1 text-muted-foreground text-[10px]">
+                        {material.unit}
+                      </span>
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-xs">
-                      {material.shortage > 0
-                        ? `${formatNumber(material.shortage, 2)} ${material.unit}`
-                        : 'Aman'}
+                    <TableCell className="text-center tabular-nums text-xs">
+                      {material.shortage > 0 ? (
+                        <Badge variant="destructive">
+                          <span>-{formatNumber(material.shortage, 2)}</span>
+                          <span className="text-[10px]">{material.unit}</span>
+                        </Badge>
+                      ) : (
+                        <Badge className="text-emerald-700 bg-emerald-50">
+                          <CheckCircleIcon data-icon="inline-start" />
+                          Aman
+                        </Badge>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
