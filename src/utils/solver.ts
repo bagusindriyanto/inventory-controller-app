@@ -13,6 +13,8 @@ export type MaterialMetadata = {
   color: string;
   unit: string;
   buyer: string;
+  leadTimeDays: number;
+  leadTimeWeeks: number;
 };
 
 type BomComponent = {
@@ -39,6 +41,8 @@ export type MaterialStockInfo = {
   color: string;
   unit: string;
   buyer: string;
+  leadTimeDays: number;
+  leadTimeWeeks: number;
 };
 
 export type Allocation = {
@@ -118,6 +122,8 @@ export function calculateOptimumAllocation(
         color: material.color || '-',
         unit: material.uom || 'N/A',
         buyer: material.buyer || 'NON NOMINATE',
+        leadTimeDays: leadTimeDays,
+        leadTimeWeeks: Math.ceil(leadTimeDays / 7),
       };
     }
 
@@ -159,6 +165,7 @@ export function calculateOptimumAllocation(
   const currentStockTracker: Record<string, number> = Object.fromEntries(
     [...usedMaterialIds].map((id) => [id, 0]),
   );
+
   stockData.forEach((stock) => {
     const id = stock.id;
     if (id && usedMaterialIds.has(id)) {
@@ -239,7 +246,7 @@ export function calculateOptimumAllocation(
 
       const components = bomMap[key] ?? [];
       const materialsStock = components
-        .map((component) => {
+        .map((component): MaterialStockInfo => {
           const forecastMaterialNeeded = forecastQty * component.consumption;
           const actualMaterialNeeded = actualAllocated * component.consumption;
 
@@ -250,12 +257,7 @@ export function calculateOptimumAllocation(
             }
           }
 
-          const meta = materialMetadataMap[component.id] ?? {
-            name: 'Unknown Material',
-            color: '-',
-            unit: 'N/A',
-            buyer: 'NON NOMINATE',
-          };
+          const meta = materialMetadataMap[component.id];
 
           return {
             id: component.id,
@@ -267,6 +269,8 @@ export function calculateOptimumAllocation(
             color: meta.color,
             unit: meta.unit,
             buyer: meta.buyer,
+            leadTimeDays: meta.leadTimeDays,
+            leadTimeWeeks: meta.leadTimeWeeks,
           };
         })
         .sort(
@@ -283,12 +287,7 @@ export function calculateOptimumAllocation(
 
     remainingStockByWeek[currentWeek] = Object.entries(currentStockTracker)
       .map(([id, qty]) => {
-        const meta = materialMetadataMap[id] ?? {
-          name: 'Unknown Material',
-          color: '-',
-          unit: 'N/A',
-          buyer: 'NON NOMINATE',
-        };
+        const meta = materialMetadataMap[id];
 
         return {
           id,
@@ -308,17 +307,17 @@ export function calculateOptimumAllocation(
     const components = bomMap[key] ?? [];
 
     // 1. Single-pass: hitung maxLeadTime & kumpulkan critical materials
-    let maxLtDays = 0;
+    let maxLeadTimeDays = 0;
     components.forEach((component) => {
-      if (component.leadTimeDays > maxLtDays) {
-        maxLtDays = component.leadTimeDays;
+      if (component.leadTimeDays > maxLeadTimeDays) {
+        maxLeadTimeDays = component.leadTimeDays;
       }
     });
 
     const criticalMaterials: CriticalMaterial[] = [];
-    if (maxLtDays > 0) {
+    if (maxLeadTimeDays > 0) {
       components.forEach((component) => {
-        if (component.leadTimeDays === maxLtDays) {
+        if (component.leadTimeDays === maxLeadTimeDays) {
           const meta = materialMetadataMap[component.id];
           criticalMaterials.push({
             id: component.id,
@@ -328,7 +327,7 @@ export function calculateOptimumAllocation(
         }
       });
     }
-    const maxLtWeeks = Math.ceil(maxLtDays / 7);
+    const maxLeadTimeWeeks = Math.ceil(maxLeadTimeDays / 7);
 
     // 2. Scan shortage week — minggu pertama status bukan SAFE
     let shortageWeek: ForecastWeek | null = null;
@@ -343,7 +342,7 @@ export function calculateOptimumAllocation(
         shortageWeek = week;
 
         // 3. Hitung mundur order trigger berdasarkan max lead time
-        const triggerIndex = i - maxLtWeeks;
+        const triggerIndex = i - maxLeadTimeWeeks;
         if (triggerIndex >= 0) {
           orderTriggerWeek = weekKeys[triggerIndex];
         } else {
@@ -365,10 +364,10 @@ export function calculateOptimumAllocation(
       style: forecast.style,
       weeks,
       purchasePlan: {
-        maxLeadTimeDays: maxLtDays,
-        maxLeadTimeWeeks: maxLtWeeks,
+        maxLeadTimeDays,
+        maxLeadTimeWeeks,
         shortageWeek,
-        orderTriggerWeek: orderTriggerWeek ?? 'Aman',
+        orderTriggerWeek,
         criticalMaterials,
       },
     };

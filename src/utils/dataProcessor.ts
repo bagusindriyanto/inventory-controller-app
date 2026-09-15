@@ -15,7 +15,7 @@ export type MaterialProjectionResult = {
   unit: string;
   buyer: string;
   initialStock: number;
-  totalLtWeeks: number;
+  leadTimeWeeks: number;
   shortageWeek: ForecastWeek | null;
   orderTriggerWeek: ForecastWeek | 'Terlambat' | 'Aman';
   timeline: WeeklyPoint[];
@@ -69,7 +69,7 @@ export function calculateMaterialAvailability(
       unit: string;
       buyer: string;
       leadTimeDays: number;
-      totalLtWeeks: number;
+      leadTimeWeeks: number;
     }
   > = {}; // Menyimpan metadata buyer, leadtime, nama, dll.
 
@@ -90,7 +90,7 @@ export function calculateMaterialAvailability(
         buyer: material.buyer || 'NON NOMINATE',
         leadTimeDays: leadTimeDays,
         // Konversi lead time material dari hari ke minggu.
-        totalLtWeeks: Math.ceil(leadTimeDays / 7),
+        leadTimeWeeks: Math.ceil(leadTimeDays / 7),
       };
     }
 
@@ -139,7 +139,7 @@ export function calculateMaterialAvailability(
         shortageWeek = week;
 
         // Hitung mundur berdasarkan lead time material.
-        const triggerIndex = index - meta.totalLtWeeks;
+        const triggerIndex = index - meta.leadTimeWeeks;
         if (triggerIndex >= 0) {
           orderTriggerWeek = weeks[triggerIndex];
         } else {
@@ -155,7 +155,7 @@ export function calculateMaterialAvailability(
       unit: meta.unit,
       buyer: meta.buyer,
       initialStock,
-      totalLtWeeks: meta.totalLtWeeks,
+      leadTimeWeeks: meta.leadTimeWeeks,
       shortageWeek,
       orderTriggerWeek,
       timeline: weeklyTimeline,

@@ -176,7 +176,7 @@ export default function MaterialProjections({
                       </div>
                       {!isSafe && (
                         <div className="text-[9px] font-normal text-slate-500">
-                          Leadtime Target: {proj.totalLtWeeks}W
+                          Leadtime Target: {proj.leadTimeWeeks}W
                         </div>
                       )}
                     </td>

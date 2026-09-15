@@ -417,7 +417,7 @@ export default function StyleProjections({
                 ? `W${purchasePlan.orderTriggerWeek}`
                 : purchasePlan.orderTriggerWeek}
             </span>
-            <span>Lead time: {purchasePlan.maxLeadTimeDays} hari</span>
+            <span>Lead time: {purchasePlan.maxLeadTimeWeeks} minggu</span>
           </div>
         )}
 
