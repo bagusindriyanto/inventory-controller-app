@@ -1,9 +1,3 @@
-export type SheetSource = {
-  spreadsheetId: string;
-  sheetName: string;
-  range: string;
-};
-
 export const SHEETS = {
   business: {
     spreadsheetId: '17fRpcH0Y_emWyXHxU7B9IHwyyUlDlCLFpubTE_rIa8A',

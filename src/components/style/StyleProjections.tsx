@@ -51,6 +51,7 @@ type MaterialMonitorRow = {
   color: string;
   unit: string;
   buyer: string;
+  leadTimeWeeks: number;
   available: number;
   required: number;
   allocated: number;
@@ -75,6 +76,7 @@ function getMaterialRows(
       color: material.color,
       unit: material.unit,
       buyer: material.buyer,
+      leadTimeWeeks: material.leadTimeWeeks,
       required: (current?.required ?? 0) + material.needed,
       allocated: (current?.allocated ?? 0) + material.actual,
       remaining: material.remaining,
@@ -89,6 +91,7 @@ function getMaterialRows(
       color: current?.color ?? material.color,
       unit: current?.unit ?? material.unit,
       buyer: current?.buyer ?? material.buyer,
+      leadTimeWeeks: current?.leadTimeWeeks ?? material.leadTimeWeeks,
       required: current?.required ?? 0,
       allocated: current?.allocated ?? 0,
       remaining: isSingleStyle
@@ -426,18 +429,20 @@ export default function StyleProjections({
             <TableHeader className="sticky top-0 z-10 bg-card">
               <TableRow>
                 <TableHead>Material</TableHead>
+
                 <TableHead className="text-right">Tersedia</TableHead>
                 <TableHead className="text-right">Kebutuhan</TableHead>
                 <TableHead className="text-right">Dialokasikan</TableHead>
                 <TableHead className="text-right">Sisa</TableHead>
                 <TableHead className="text-center">Kekurangan</TableHead>
+                <TableHead className="text-right">Lead Time</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {visibleMaterials.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={7}
                     className="py-8 text-center text-muted-foreground"
                   >
                     Tidak ada material untuk filter ini.
@@ -498,6 +503,12 @@ export default function StyleProjections({
                           Aman
                         </Badge>
                       )}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      <span className="text-xs">
+                        {formatNumber(material.leadTimeWeeks)}
+                      </span>
+                      <span className="ml-1 text-[10px]">minggu</span>
                     </TableCell>
                   </TableRow>
                 ))

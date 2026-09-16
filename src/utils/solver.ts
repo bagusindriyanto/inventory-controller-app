@@ -59,6 +59,7 @@ export type RemainingStockEntry = {
   color: string;
   unit: string;
   buyer: string;
+  leadTimeWeeks: number;
 };
 
 export type CriticalMaterial = {
@@ -162,16 +163,12 @@ export function calculateOptimumAllocation(
   });
 
   // D. Transformasikan array stock, hanya track material yang dipakai solver
-  const currentStockTracker: Record<string, number> = Object.fromEntries(
-    [...usedMaterialIds].map((id) => [id, 0]),
+  const stockById = new Map(
+    stockData.map((stock) => [stock.id, stock.totalQty ?? 0]),
   );
-
-  stockData.forEach((stock) => {
-    const id = stock.id;
-    if (id && usedMaterialIds.has(id)) {
-      currentStockTracker[id] = stock.totalQty ?? 0;
-    }
-  });
+  const currentStockTracker: Record<string, number> = Object.fromEntries(
+    [...usedMaterialIds].map((id) => [id, stockById.get(id) ?? 0]),
+  );
 
   // E. Dapatkan daftar minggu
   const weekKeys: ForecastWeek[] = [
@@ -285,17 +282,17 @@ export function calculateOptimumAllocation(
       };
     });
 
-    remainingStockByWeek[currentWeek] = Object.entries(currentStockTracker)
-      .map(([id, qty]) => {
-        const meta = materialMetadataMap[id];
-
+    // Laporan mencakup semua material; material di luar solver memakai stok asli.
+    remainingStockByWeek[currentWeek] = Object.entries(materialMetadataMap)
+      .map(([id, meta]) => {
         return {
           id,
-          qty,
+          qty: currentStockTracker[id] ?? stockById.get(id) ?? 0,
           name: meta.name,
           color: meta.color,
           unit: meta.unit,
           buyer: meta.buyer,
+          leadTimeWeeks: meta.leadTimeWeeks,
         };
       })
       .sort((a, b) => a.qty - b.qty || a.name.localeCompare(b.name));

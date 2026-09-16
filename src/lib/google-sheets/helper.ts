@@ -14,7 +14,7 @@ const cleanCell = (cell: SheetValue): SheetValue => {
 };
 
 export const parseValuesToRows = (values: SheetValue[][]): SheetRow[] => {
-  if (!values || values.length === 0) return [];
+  if (!values || values.length <= 1) return [];
 
   const headers = values[0].map((header) => String(header ?? '').trim());
   const rows = values.slice(1);
